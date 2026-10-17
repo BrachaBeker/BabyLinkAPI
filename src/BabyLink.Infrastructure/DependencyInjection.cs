@@ -11,8 +11,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
     {
-        var connectionString = config.GetConnectionString("Default")
-            ?? throw new InvalidOperationException("Connection string 'Default' is missing (set it in User Secrets).");
+        var connectionString = config.GetConnectionString("Default");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException("Connection string 'Default' is missing (set it in User Secrets).");
+        }
 
         services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 

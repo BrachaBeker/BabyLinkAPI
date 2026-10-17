@@ -1,9 +1,13 @@
-// Seed: מריץ Database.MigrateAsync() ואז מכניס נתוני דמו אם ה-DB ריק:
-// - תגיות: תינוק, עזרה בשיעורים, בעלי חיים בבית, משמרת לילה, צרכים מיוחדים.
-// - משתמשי דמו (אותם פרטים כמו ב-README):
-//     parent1@babylink.dev / Demo123!   (Parent)
-//     parent2@babylink.dev / Demo123!   (Parent)
-//     sitter1@babylink.dev / Demo123!   (Babysitter)
-//     sitter2@babylink.dev / Demo123!   (Babysitter)
-// - כ-10 בקשות עתידיות בכמה ערים ורחובות (כדי שהסינון וה-Pagination יהיו מעניינים), חלקן משובצות.
-// נקרא מ-Program.cs בעליית האפליקציה - כך המערכת עולה בלי שום התערבות ידנית ב-DB.
+// Seed: מריץ את ה-Migrations בעליית השרת, כך שהמערכת עולה בלי שום התערבות ידנית ב-DB.
+// (משתמשי דמו יתווספו בשלב 5, בקשות בשלב 6, תגיות בשלב 7.)
+using Microsoft.EntityFrameworkCore;
+
+namespace BabyLink.Infrastructure.Persistence.Seed;
+
+public static class DataSeeder
+{
+    public static async Task SeedAsync(AppDbContext db, CancellationToken cancellationToken)
+    {
+        await db.Database.MigrateAsync(cancellationToken);
+    }
+}
