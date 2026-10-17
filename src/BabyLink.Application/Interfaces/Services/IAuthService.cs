@@ -11,4 +11,7 @@ public interface IAuthService
 
     // פרטים שגויים -> InvalidCredentialsException (401).
     Task<AuthResponseDto> LoginAsync(LoginRequestDto dto, CancellationToken cancellationToken);
+
+    // פרטי משתמש - רק המשתמש עצמו (אחרת 403). לא קיים -> 404.
+    Task<UserDto> GetUserAsync(int id, int currentUserId, CancellationToken cancellationToken);
 }

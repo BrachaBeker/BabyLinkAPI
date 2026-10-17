@@ -130,7 +130,8 @@ dotnet ef migrations add <Name> -p src/BabyLink.Infrastructure -s src/BabyLink.A
 
 | Method | URL | הרשאה | תשובות |
 |---|---|---|---|
-| POST | `/api/users` | ללא (הרשמה) | 201, 400, 409 |
+| POST | `/api/users` | ללא (הרשמה) | 201 + Location, 400, 409 |
+| GET | `/api/users/{id}` | המשתמש עצמו בלבד | 200, 401, 403, 404 |
 | POST | `/api/tokens` | ללא (התחברות) | 200, 400, 401 |
 | GET | `/api/service-requests` | מחובר | 200, 400, 401 |
 | GET | `/api/service-requests/{id}` | מחובר | 200, 401, 404 |

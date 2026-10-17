@@ -61,5 +61,18 @@ public class AuthService(
         };
     }
 
+    public async Task<UserDto> GetUserAsync(int id, int currentUserId, CancellationToken cancellationToken)
+    {
+        if (id != currentUserId)
+        {
+            throw new ForbiddenException("אפשר לצפות רק בפרטים של המשתמש שלך.");
+        }
+
+        var user = await userRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException($"משתמש {id} לא נמצא.");
+
+        return mapper.Map<UserDto>(user);
+    }
+
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 }
