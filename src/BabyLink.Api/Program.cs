@@ -3,6 +3,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using BabyLink.Api.Middleware;
+using BabyLink.Api.Swagger;
 using BabyLink.Application;
 using BabyLink.Application.Interfaces.Security;
 using BabyLink.Application.Options;
@@ -79,17 +80,15 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "BabyLink API", Version = "v1" });
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    options.AddSecurityDefinition(AuthorizeOperationFilter.SchemeName, new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
         Description = "מדביקים כאן את ה-token שהתקבל מ-POST /api/tokens (בלי המילה Bearer)."
     });
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
-    {
-        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
-    });
+    // המנעול מוצג רק על endpoints שדורשים התחברות (ולא על הרשמה/התחברות).
+    options.OperationFilter<AuthorizeOperationFilter>();
 });
 
 var app = builder.Build();
