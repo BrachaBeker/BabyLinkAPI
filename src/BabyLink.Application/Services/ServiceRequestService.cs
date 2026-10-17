@@ -1,6 +1,7 @@
 // מימוש IServiceRequestService - הלב של המערכת. כל הוולידציה העסקית כאן:
 // סיום אחרי התחלה, התחלה בעתיד, עד 24 שעות; רק ההורה שיצר עורך/מוחק (403); בקשה משובצת לא נערכת (409).
-// (AssignAsync - תפיסת בקשה - ייכתב בשלב 8.)
+// מקרי הקצה של התחרות מתועדים ב-README. מגבלה ידועה: שתי בקשות שונות וחופפות שאותה שמרטפית תופסת
+// באותה מילישנייה - שתי שורות שונות, ולכן ה-Version לא מזהה את זה (פתרון אפשרי: Concurrency Token על User).
 using AutoMapper;
 using BabyLink.Application.DTOs.Common;
 using BabyLink.Application.DTOs.ServiceRequests;
@@ -100,8 +101,47 @@ public class ServiceRequestService(
         logger.LogInformation("Service request {RequestId} deleted by parent {ParentId}", id, parentId);
     }
 
-    public Task<ServiceRequestDetailsDto> AssignAsync(int requestId, int babysitterId, CancellationToken cancellationToken) =>
-        throw new NotImplementedException("Assignment is implemented in stage 8.");
+    // תפיסת בקשה - "הראשונה שתופסת זוכה". הבדיקות העסקיות מסננות את רוב המקרים,
+    // וה-Version (Optimistic Concurrency) תופס את המקרה ששתי שמרטפיות עברו את הבדיקות באותו רגע.
+    public async Task<ServiceRequestDetailsDto> AssignAsync(int requestId, int babysitterId, CancellationToken cancellationToken)
+    {
+        // 1. טעינה עם Tracking - כדי ש-EF יכניס את ה-Version הנוכחי ל-WHERE של ה-UPDATE.
+        var request = await repository.GetForUpdateAsync(requestId, cancellationToken) ?? throw NotFound(requestId);
+
+        // 2. כבר שלה - הצלחה (אידמפוטנטי: לחיצה כפולה לא נכשלת).
+        if (request.AssignedBabysitterId == babysitterId)
+        {
+            return mapper.Map<ServiceRequestDetailsDto>(request);
+        }
+
+        // 3. תפוסה ע"י שמרטפית אחרת.
+        if (request.AssignedBabysitterId is not null)
+        {
+            throw new ConflictException("הבקשה כבר נתפסה על ידי שמרטפית אחרת.");
+        }
+
+        // 4. מועד ההתחלה עבר.
+        if (request.StartTimeUtc <= DateTime.UtcNow)
+        {
+            throw new BusinessRuleException("לא ניתן לתפוס בקשה שמועד ההתחלה שלה עבר.");
+        }
+
+        // 5. לשמרטפית כבר יש שיבוץ שחופף בזמן.
+        if (await repository.HasOverlappingAssignmentAsync(babysitterId, request.StartTimeUtc, request.EndTimeUtc, request.Id, cancellationToken))
+        {
+            throw new ConflictException("יש לך כבר שיבוץ אחר שחופף בזמן לבקשה הזו.");
+        }
+
+        // 6. שיבוץ ושמירה. אם מישהו שמר בינתיים - ה-Repository זורק ConcurrencyConflictException (409).
+        request.AssignedBabysitterId = babysitterId;
+        request.AssignedAtUtc = DateTime.UtcNow;
+        await repository.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Service request {RequestId} assigned to babysitter {BabysitterId}", requestId, babysitterId);
+
+        // טעינה מחדש - כדי שהתשובה תכלול את פרטי השמרטפית.
+        return await GetByIdAsync(requestId, cancellationToken);
+    }
 
     private async Task<ServiceRequest> GetOwnedForUpdateAsync(int id, int parentId, CancellationToken cancellationToken)
     {

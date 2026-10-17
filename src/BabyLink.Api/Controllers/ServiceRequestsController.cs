@@ -1,6 +1,5 @@
-// /api/service-requests - כל ה-endpoints דורשים התחברות; יצירה/עריכה/מחיקה רק להורה.
+// /api/service-requests - כל ה-endpoints דורשים התחברות; יצירה/עריכה/מחיקה רק להורה, תפיסה רק לשמרטפית.
 // ה-Controller דק: שולף UserId מה-JWT, קורא ל-Service ומחזיר סטטוס. אין כאן לוגיקה עסקית.
-// (PUT /{id}/assignment - תפיסת בקשה - יתווסף בשלב 8.)
 using BabyLink.Api.Extensions;
 using BabyLink.Application.DTOs.Common;
 using BabyLink.Application.DTOs.ServiceRequests;
@@ -71,5 +70,18 @@ public class ServiceRequestsController(IServiceRequestService service) : Control
     {
         await service.DeleteAsync(id, User.GetUserId(), cancellationToken);
         return NoContent();
+    }
+
+    // תפיסת בקשה ע"י שמרטפית. 409 = מישהי אחרת הקדימה (או שיבוץ חופף).
+    [HttpPut("{id:int}/assignment")]
+    [Authorize(Roles = nameof(UserRole.Babysitter))]
+    [ProducesResponseType<ServiceRequestDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ServiceRequestDetailsDto>> Assign([FromRoute] int id, CancellationToken cancellationToken)
+    {
+        return Ok(await service.AssignAsync(id, User.GetUserId(), cancellationToken));
     }
 }
