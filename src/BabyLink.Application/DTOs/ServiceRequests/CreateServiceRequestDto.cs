@@ -1,5 +1,4 @@
 // DTO ליצירת בקשה. ולידציה של צורה כאן; ולידציה עסקית (סיום אחרי התחלה, מועד עתידי) ב-Service.
-// (TagIds יתווסף בשלב 7.)
 using System.ComponentModel.DataAnnotations;
 
 namespace BabyLink.Application.DTOs.ServiceRequests;
@@ -32,4 +31,8 @@ public class CreateServiceRequestDto
 
     [MaxLength(1000)]
     public string? Description { get; set; }
+
+    // מזהי תגיות (לא חובה). מזהה שלא קיים -> 400.
+    [MaxLength(10)]
+    public List<int> TagIds { get; set; } = [];
 }

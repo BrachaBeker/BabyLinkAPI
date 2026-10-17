@@ -1,4 +1,10 @@
-// ישות תגית לבקשה (למשל: תינוק, עזרה בשיעורים, בעלי חיים בבית, משמרת לילה).
-// שדות: Id, Name.
-// ניווט: ServiceRequests - קשר Many-to-Many עם ServiceRequest.
-// התגיות נוצרות ב-Seed; משמשות לסינון הרשימה.
+// תגית לבקשה (תינוק, עזרה בשיעורים, בעלי חיים בבית...). קשר Many-to-Many עם ServiceRequest; נוצרות ב-Seed.
+namespace BabyLink.Domain.Entities;
+
+public class Tag
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+
+    public ICollection<ServiceRequest> ServiceRequests { get; set; } = new List<ServiceRequest>();
+}

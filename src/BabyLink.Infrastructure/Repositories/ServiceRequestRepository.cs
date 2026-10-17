@@ -42,6 +42,11 @@ public class ServiceRequestRepository(AppDbContext db) : IServiceRequestReposito
             requests = requests.Where(r => r.StartTimeUtc <= toUtc);
         }
 
+        if (query.TagId is { } tagId)
+        {
+            requests = requests.Where(r => r.Tags.Any(t => t.Id == tagId));
+        }
+
         if (query.MinHourlyRate is { } minHourlyRate)
         {
             requests = requests.Where(r => r.HourlyRate >= minHourlyRate);
@@ -68,7 +73,9 @@ public class ServiceRequestRepository(AppDbContext db) : IServiceRequestReposito
         };
 
         var totalCount = await requests.CountAsync(cancellationToken);
+        // Include של התגיות באותה שאילתה - בלי N+1.
         var items = await requests
+            .Include(r => r.Tags)
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
             .ToListAsync(cancellationToken);
@@ -87,12 +94,14 @@ public class ServiceRequestRepository(AppDbContext db) : IServiceRequestReposito
             .AsNoTracking()
             .Include(r => r.Parent)
             .Include(r => r.AssignedBabysitter)
+            .Include(r => r.Tags)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
     public Task<ServiceRequest?> GetForUpdateAsync(int id, CancellationToken cancellationToken) =>
         db.ServiceRequests
             .Include(r => r.Parent)
             .Include(r => r.AssignedBabysitter)
+            .Include(r => r.Tags)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
     public Task<bool> HasOverlappingAssignmentAsync(int babysitterId, DateTime startUtc, DateTime endUtc, int excludeRequestId, CancellationToken cancellationToken) =>

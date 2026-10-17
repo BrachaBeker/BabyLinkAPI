@@ -1,4 +1,4 @@
-// פרמטרים לרשימה ([FromQuery]): סינון, מיון ו-Pagination. PageSize גדול מ-50 מוגבל ל-50. (TagId - שלב 7.)
+// פרמטרים לרשימה ([FromQuery]): סינון, מיון ו-Pagination. PageSize גדול מ-50 מוגבל ל-50.
 // דוגמה: GET /api/service-requests?city=ירושלים&street=הרצל&onlyAvailable=true&page=1
 using System.ComponentModel.DataAnnotations;
 
@@ -16,6 +16,7 @@ public class ServiceRequestQueryParameters
 
     public DateTime? FromUtc { get; set; }
     public DateTime? ToUtc { get; set; }
+    public int? TagId { get; set; }
     public decimal? MinHourlyRate { get; set; }
     public bool OnlyAvailable { get; set; }
     public bool Mine { get; set; }

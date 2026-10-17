@@ -31,4 +31,8 @@ public class UpdateServiceRequestDto
 
     [MaxLength(1000)]
     public string? Description { get; set; }
+
+    // מזהי תגיות (לא חובה). מזהה שלא קיים -> 400.
+    [MaxLength(10)]
+    public List<int> TagIds { get; set; } = [];
 }

@@ -1,5 +1,5 @@
 // בקשת שמרטפות - המשאב המוגבל. AssignedBabysitterId == null פירושו פנויה; Version הוא ה-Concurrency Token.
-// אין עמודת סטטוס: פנויה/תפוסה/פג תוקף מחושבים בשאילתה. (Tags יתווספו בשלב 7.)
+// אין עמודת סטטוס: פנויה/תפוסה/פג תוקף מחושבים בשאילתה.
 namespace BabyLink.Domain.Entities;
 
 public class ServiceRequest
@@ -25,4 +25,5 @@ public class ServiceRequest
 
     public User Parent { get; set; } = null!;
     public User? AssignedBabysitter { get; set; }
+    public ICollection<Tag> Tags { get; set; } = new List<Tag>();
 }

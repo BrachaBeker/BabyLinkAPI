@@ -1,5 +1,5 @@
 // Fluent API ל-ServiceRequest: שני קשרי 1:N ל-User (Parent - Cascade, Babysitter - Restrict),
-// Version כ-Concurrency Token, ואינדקסים על (City, Street) ועל StartTimeUtc. (M:N ל-Tags יתווסף בשלב 7.)
+// M:N ל-Tags, Version כ-Concurrency Token, ואינדקסים על (City, Street) ועל StartTimeUtc.
 using BabyLink.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -32,6 +32,15 @@ public class ServiceRequestConfiguration : IEntityTypeConfiguration<ServiceReque
             .HasForeignKey(r => r.AssignedBabysitterId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Many-to-Many: טבלת קישור ServiceRequestTags עם מפתח מורכב, בלי מחלקה ב-C#.
+        builder.HasMany(r => r.Tags)
+            .WithMany(t => t.ServiceRequests)
+            .UsingEntity(
+                "ServiceRequestTags",
+                tag => tag.HasOne(typeof(Tag)).WithMany().HasForeignKey("TagId").OnDelete(DeleteBehavior.Cascade),
+                request => request.HasOne(typeof(ServiceRequest)).WithMany().HasForeignKey("ServiceRequestId").OnDelete(DeleteBehavior.Cascade),
+                join => join.HasKey("ServiceRequestId", "TagId"));
 
         builder.HasIndex(r => new { r.City, r.Street });
         builder.HasIndex(r => r.StartTimeUtc);

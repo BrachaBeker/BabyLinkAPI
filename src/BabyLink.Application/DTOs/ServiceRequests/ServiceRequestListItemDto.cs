@@ -1,4 +1,4 @@
-// DTO מקוצר לשורה ברשימה: עיר ורחוב בלי מספר בית; IsAssigned ו-IsExpired מחושבים. (TagNames - שלב 7.)
+// DTO מקוצר לשורה ברשימה: עיר ורחוב בלי מספר בית, שמות התגיות; IsAssigned ו-IsExpired מחושבים.
 namespace BabyLink.Application.DTOs.ServiceRequests;
 
 public class ServiceRequestListItemDto
@@ -10,6 +10,7 @@ public class ServiceRequestListItemDto
     public string Street { get; set; } = string.Empty;
     public int ChildrenCount { get; set; }
     public decimal HourlyRate { get; set; }
+    public List<string> TagNames { get; set; } = [];
     public bool IsAssigned { get; set; }
     public bool IsExpired { get; set; }
 }

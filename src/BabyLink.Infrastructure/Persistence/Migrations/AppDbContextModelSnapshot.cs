@@ -95,6 +95,27 @@ namespace BabyLink.Infrastructure.Persistence.Migrations
                     b.ToTable("ServiceRequests", (string)null);
                 });
 
+            modelBuilder.Entity("BabyLink.Domain.Entities.Tag", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Tags", (string)null);
+                });
+
             modelBuilder.Entity("BabyLink.Domain.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -144,6 +165,21 @@ namespace BabyLink.Infrastructure.Persistence.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("ServiceRequestTags", b =>
+                {
+                    b.Property<int>("ServiceRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TagId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ServiceRequestId", "TagId");
+
+                    b.HasIndex("TagId");
+
+                    b.ToTable("ServiceRequestTags");
+                });
+
             modelBuilder.Entity("BabyLink.Domain.Entities.ServiceRequest", b =>
                 {
                     b.HasOne("BabyLink.Domain.Entities.User", "AssignedBabysitter")
@@ -160,6 +196,21 @@ namespace BabyLink.Infrastructure.Persistence.Migrations
                     b.Navigation("AssignedBabysitter");
 
                     b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("ServiceRequestTags", b =>
+                {
+                    b.HasOne("BabyLink.Domain.Entities.ServiceRequest", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BabyLink.Domain.Entities.Tag", null)
+                        .WithMany()
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("BabyLink.Domain.Entities.User", b =>

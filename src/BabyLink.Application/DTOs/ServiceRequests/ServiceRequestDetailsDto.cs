@@ -1,5 +1,7 @@
-// DTO מלא למסך פרטי בקשה: כתובת מלאה, פרטי ההורה ופרטי השמרטפית שתפסה (אם יש). (Tags - שלב 7.)
+// DTO מלא למסך פרטי בקשה: כתובת מלאה, פרטי ההורה, פרטי השמרטפית שתפסה (אם יש) ותגיות.
 // השמות ParentFullName / AssignedBabysitterFullName מאפשרים ל-AutoMapper לבצע Flattening אוטומטי.
+using BabyLink.Application.DTOs.Tags;
+
 namespace BabyLink.Application.DTOs.ServiceRequests;
 
 public class ServiceRequestDetailsDto
@@ -26,6 +28,8 @@ public class ServiceRequestDetailsDto
     public string? AssignedBabysitterFullName { get; set; }
     public string? AssignedBabysitterPhone { get; set; }
     public DateTime? AssignedAtUtc { get; set; }
+
+    public List<TagDto> Tags { get; set; } = [];
 
     public bool IsAssigned { get; set; }
     public bool IsExpired { get; set; }

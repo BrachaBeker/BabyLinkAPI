@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+    public DbSet<Tag> Tags => Set<Tag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -19,7 +20,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     {
         foreach (var entry in ChangeTracker.Entries<ServiceRequest>())
         {
-            if (entry.State is EntityState.Added or EntityState.Modified)
+            // גם שינוי של התגיות בלבד נחשב שינוי של הבקשה - כדי שה-Version ייבדק ויתחלף.
+            if (entry.State is EntityState.Added or EntityState.Modified ||
+                (entry.State == EntityState.Unchanged && entry.Collections.Any(c => c.IsModified)))
             {
                 // הערך הישן נשאר כ-OriginalValue ונכנס ל-WHERE של ה-UPDATE.
                 entry.Entity.Version = Guid.NewGuid();

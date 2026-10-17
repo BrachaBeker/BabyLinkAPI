@@ -14,6 +14,7 @@ namespace BabyLink.Application.Services;
 
 public class ServiceRequestService(
     IServiceRequestRepository repository,
+    ITagRepository tagRepository,
     IMapper mapper,
     ILogger<ServiceRequestService> logger) : IServiceRequestService
 {
@@ -50,6 +51,7 @@ public class ServiceRequestService(
         var request = mapper.Map<ServiceRequest>(dto);
         request.ParentId = parentId;
         request.CreatedAtUtc = DateTime.UtcNow;
+        request.Tags = [.. await GetTagsAsync(dto.TagIds, cancellationToken)];
 
         await repository.AddAsync(request, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
@@ -73,7 +75,15 @@ public class ServiceRequestService(
         dto.EndTimeUtc = ToUtc(dto.EndTimeUtc);
         ValidateTimes(dto.StartTimeUtc, dto.EndTimeUtc);
 
+        var tags = await GetTagsAsync(dto.TagIds, cancellationToken);
+
         mapper.Map(dto, request);
+        request.Tags.Clear();
+        foreach (var tag in tags)
+        {
+            request.Tags.Add(tag);
+        }
+
         await repository.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Service request {RequestId} updated by parent {ParentId}", id, parentId);
@@ -103,6 +113,24 @@ public class ServiceRequestService(
         }
 
         return request;
+    }
+
+    private async Task<IReadOnlyList<Tag>> GetTagsAsync(List<int> tagIds, CancellationToken cancellationToken)
+    {
+        var distinctIds = tagIds.Distinct().ToList();
+        if (distinctIds.Count == 0)
+        {
+            return [];
+        }
+
+        var tags = await tagRepository.GetByIdsAsync(distinctIds, cancellationToken);
+        if (tags.Count != distinctIds.Count)
+        {
+            var missing = distinctIds.Except(tags.Select(t => t.Id));
+            throw new BusinessRuleException($"תגיות לא קיימות: {string.Join(", ", missing)}.");
+        }
+
+        return tags;
     }
 
     private static void ValidateTimes(DateTime startUtc, DateTime endUtc)
