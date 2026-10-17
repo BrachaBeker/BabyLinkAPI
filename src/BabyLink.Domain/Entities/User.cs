@@ -1,5 +1,19 @@
-// ישות משתמש/ת - הורה או שמרטפית.
-// שדות: Id, Email (ייחודי), PasswordHash (Hash, לא הצפנה!), FullName, Phone, City, Role (UserRole).
-// ניווטים: CreatedRequests - בקשות שההורה פרסם (1:N),
-//          AssignedRequests - בקשות שהשמרטפית תפסה (1:N).
-// ללא Attributes של EF - כל ההגדרות ב-Fluent API בשכבת Infrastructure.
+// ישות משתמש/ת - הורה או שמרטפית. POCO בלי Attributes; ההגדרות ב-Fluent API ב-Infrastructure.
+using BabyLink.Domain.Enums;
+
+namespace BabyLink.Domain.Entities;
+
+public class User
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string City { get; set; } = string.Empty;
+    public UserRole Role { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+
+    public ICollection<ServiceRequest> CreatedRequests { get; set; } = new List<ServiceRequest>();
+    public ICollection<ServiceRequest> AssignedRequests { get; set; } = new List<ServiceRequest>();
+}
