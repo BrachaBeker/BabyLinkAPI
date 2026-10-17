@@ -18,6 +18,13 @@ using NLog.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render מגדיר את הפורט שהשרת צריך להאזין לו במשתנה הסביבה PORT.
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(renderPort))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
+}
+
 // ---------- Logging ----------
 builder.Logging.ClearProviders();
 builder.Host.UseNLog();
