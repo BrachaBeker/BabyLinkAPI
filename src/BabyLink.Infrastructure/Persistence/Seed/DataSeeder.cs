@@ -1,5 +1,5 @@
-// Seed: מריץ את ה-Migrations ומכניס 4 משתמשי דמו אם אין משתמשים (סיסמה לכולם: Demo123!).
-// כך המערכת עולה בלי שום התערבות ידנית ב-DB. (בקשות יתווספו בשלב 6, תגיות בשלב 7.)
+// Seed: מריץ את ה-Migrations, ומכניס 4 משתמשי דמו (סיסמה: Demo123!) ו-10 בקשות - כל טבלה רק אם היא ריקה.
+// כך המערכת עולה בלי שום התערבות ידנית ב-DB. (תגיות יתווספו בשלב 7.)
 using BabyLink.Application.Interfaces.Security;
 using BabyLink.Domain.Entities;
 using BabyLink.Domain.Enums;
@@ -28,5 +28,54 @@ public static class DataSeeder
 
             await db.SaveChangesAsync(cancellationToken);
         }
+
+        if (!await db.ServiceRequests.AnyAsync(cancellationToken))
+        {
+            await SeedServiceRequestsAsync(db, cancellationToken);
+        }
+    }
+
+    // 10 בקשות עתידיות בכמה ערים ורחובות (כדי שהסינון וה-Pagination יהיו מעניינים); 3 מהן כבר משובצות.
+    private static async Task SeedServiceRequestsAsync(AppDbContext db, CancellationToken cancellationToken)
+    {
+        var users = await db.Users.ToDictionaryAsync(u => u.Email, u => u.Id, cancellationToken);
+        var parent1 = users["parent1@babylink.dev"];
+        var parent2 = users["parent2@babylink.dev"];
+        var sitter1 = users["sitter1@babylink.dev"];
+        var sitter2 = users["sitter2@babylink.dev"];
+
+        var now = DateTime.UtcNow;
+        var today = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
+
+        ServiceRequest Request(int parentId, int daysFromToday, int startHourUtc, int hours, string city, string street,
+            string houseNumber, int children, decimal rate, string? description = null, int? babysitterId = null) => new()
+        {
+            ParentId = parentId,
+            StartTimeUtc = today.AddDays(daysFromToday).AddHours(startHourUtc),
+            EndTimeUtc = today.AddDays(daysFromToday).AddHours(startHourUtc + hours),
+            City = city,
+            Street = street,
+            HouseNumber = houseNumber,
+            ChildrenCount = children,
+            HourlyRate = rate,
+            Description = description,
+            CreatedAtUtc = now,
+            AssignedBabysitterId = babysitterId,
+            AssignedAtUtc = babysitterId is null ? null : now
+        };
+
+        db.ServiceRequests.AddRange(
+            Request(parent1, 1, 15, 4, "ירושלים", "הרצל", "12", 2, 45m, "שני ילדים, 4 ו-7"),
+            Request(parent1, 2, 16, 3, "ירושלים", "שדרות הרצל", "5א", 1, 50m, "תינוקת בת שנה"),
+            Request(parent1, 3, 17, 5, "ירושלים", "יפו", "101", 3, 55m, babysitterId: sitter1),
+            Request(parent1, 4, 14, 3, "ירושלים", "בן יהודה", "8", 2, 40m),
+            Request(parent2, 1, 13, 4, "בני ברק", "רבי עקיבא", "54", 4, 60m, "ארבעה ילדים, עזרה בארוחת ערב"),
+            Request(parent2, 2, 15, 3, "בני ברק", "ז'בוטינסקי", "120", 2, 45m, babysitterId: sitter2),
+            Request(parent2, 5, 18, 6, "בני ברק", "רבי עקיבא", "3", 3, 50m, "משמרת ערב"),
+            Request(parent2, 3, 9, 8, "תל אביב", "דיזנגוף", "200", 1, 65m),
+            Request(parent1, 6, 15, 3, "חיפה", "הרצל", "40", 2, 42m, babysitterId: sitter1),
+            Request(parent2, 7, 16, 4, "חיפה", "מוריה", "17", 1, 48m, "ילד עם אלרגיה לבוטנים"));
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 }

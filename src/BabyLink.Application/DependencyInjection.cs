@@ -14,6 +14,7 @@ public static class DependencyInjection
         services.AddAutoMapper(cfg => cfg.LicenseKey = config["AutoMapper:LicenseKey"], typeof(DependencyInjection).Assembly);
 
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IServiceRequestService, ServiceRequestService>();
 
         return services;
     }
