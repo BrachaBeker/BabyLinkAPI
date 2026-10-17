@@ -1,2 +1,8 @@
-// ממשק ל-Hash ולאימות סיסמאות: Hash(password), Verify(password, hash).
-// המימוש ב-Infrastructure - כך ה-Service לא תלוי בספרייה ספציפית וקל לבדוק אותו עם Moq.
+// ממשק ל-Hash ולאימות סיסמאות. המימוש ב-Infrastructure - כך קל לבדוק את ה-Service עם Moq.
+namespace BabyLink.Application.Interfaces.Security;
+
+public interface IPasswordHasher
+{
+    string Hash(string password);
+    bool Verify(string password, string passwordHash);
+}

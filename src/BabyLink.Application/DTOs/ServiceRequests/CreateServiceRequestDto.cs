@@ -1,4 +1,35 @@
-// DTO ליצירת בקשה: StartTimeUtc, EndTimeUtc, City, Street, HouseNumber, AddressNotes,
-// ChildrenCount, HourlyRate, Description, TagIds.
-// Data Annotations: [Required] (כולל City, Street, HouseNumber), [Range] למספר ילדים ולתעריף,
-// [MaxLength] לטקסטים.
+// DTO ליצירת בקשה. ולידציה של צורה כאן; ולידציה עסקית (סיום אחרי התחלה, מועד עתידי) ב-Service.
+// (TagIds יתווסף בשלב 7.)
+using System.ComponentModel.DataAnnotations;
+
+namespace BabyLink.Application.DTOs.ServiceRequests;
+
+public class CreateServiceRequestDto
+{
+    [Required]
+    public DateTime StartTimeUtc { get; set; }
+
+    [Required]
+    public DateTime EndTimeUtc { get; set; }
+
+    [Required, MaxLength(100)]
+    public string City { get; set; } = string.Empty;
+
+    [Required, MaxLength(150)]
+    public string Street { get; set; } = string.Empty;
+
+    [Required, MaxLength(20)]
+    public string HouseNumber { get; set; } = string.Empty;
+
+    [MaxLength(200)]
+    public string? AddressNotes { get; set; }
+
+    [Range(1, 10)]
+    public int ChildrenCount { get; set; }
+
+    [Range(typeof(decimal), "1", "1000")]
+    public decimal HourlyRate { get; set; }
+
+    [MaxLength(1000)]
+    public string? Description { get; set; }
+}

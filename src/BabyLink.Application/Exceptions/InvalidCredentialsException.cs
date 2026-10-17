@@ -1,1 +1,4 @@
-// חריגה: אימייל או סיסמה שגויים בהתחברות -> 401 (הודעה כללית, בלי לפרט מה שגוי).
+// חריגה: אימייל או סיסמה שגויים -> 401. ההודעה כללית בכוונה, בלי לפרט מה שגוי.
+namespace BabyLink.Application.Exceptions;
+
+public class InvalidCredentialsException() : Exception("אימייל או סיסמה שגויים.");

@@ -1,3 +1,14 @@
 // ממשק שירות הרשמה והתחברות.
-// RegisterAsync(RegisterRequestDto) - בדיקת אימייל כפול, Hash לסיסמה, שמירה.
-// LoginAsync(LoginRequestDto) - אימות סיסמה והחזרת AuthResponseDto עם JWT.
+using BabyLink.Application.DTOs.Auth;
+using BabyLink.Application.DTOs.Users;
+
+namespace BabyLink.Application.Interfaces.Services;
+
+public interface IAuthService
+{
+    // אימייל קיים -> ConflictException (409).
+    Task<UserDto> RegisterAsync(RegisterRequestDto dto, CancellationToken cancellationToken);
+
+    // פרטים שגויים -> InvalidCredentialsException (401).
+    Task<AuthResponseDto> LoginAsync(LoginRequestDto dto, CancellationToken cancellationToken);
+}

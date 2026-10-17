@@ -1,6 +1,39 @@
-// פרמטרים לרשימה (מגיעים מ-[FromQuery]):
-// סינון: City (התאמה מלאה, בלי תלות ברישיות), Street (חיפוש חלקי - "הרצל" ימצא "שדרות הרצל"),
-//        FromUtc, ToUtc, TagId, MinHourlyRate, OnlyAvailable, Mine (הבקשות שלי).
-// מיון: SortBy (startTime / hourlyRate), Descending.
-// Pagination: Page (ברירת מחדל 1), PageSize (ברירת מחדל 10, מקסימום 50 - ערך גדול יותר יוגבל ל-50).
+// פרמטרים לרשימה ([FromQuery]): סינון, מיון ו-Pagination. PageSize גדול מ-50 מוגבל ל-50. (TagId - שלב 7.)
 // דוגמה: GET /api/service-requests?city=ירושלים&street=הרצל&onlyAvailable=true&page=1
+using System.ComponentModel.DataAnnotations;
+
+namespace BabyLink.Application.DTOs.ServiceRequests;
+
+public class ServiceRequestQueryParameters
+{
+    public const int MaxPageSize = 50;
+
+    [MaxLength(100)]
+    public string? City { get; set; }
+
+    [MaxLength(150)]
+    public string? Street { get; set; }
+
+    public DateTime? FromUtc { get; set; }
+    public DateTime? ToUtc { get; set; }
+    public decimal? MinHourlyRate { get; set; }
+    public bool OnlyAvailable { get; set; }
+    public bool Mine { get; set; }
+
+    [RegularExpression("^(startTime|hourlyRate)$", ErrorMessage = "sortBy must be 'startTime' or 'hourlyRate'.")]
+    public string SortBy { get; set; } = "startTime";
+
+    public bool Descending { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int Page { get; set; } = 1;
+
+    private int _pageSize = 10;
+
+    [Range(1, int.MaxValue)]
+    public int PageSize
+    {
+        get => _pageSize;
+        set => _pageSize = Math.Min(value, MaxPageSize);
+    }
+}

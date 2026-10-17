@@ -1,3 +1,15 @@
-// DTO מקוצר לשורה ברשימה: Id, StartTimeUtc, EndTimeUtc, City, Street (בלי מספר בית),
-// ChildrenCount, HourlyRate, TagNames, IsAssigned, IsExpired (מחושבים).
-// העיר והרחוב מוצגים כבר ברשימה - כדי שהשמרטפית תדע מיד אם זה קרוב אליה.
+// DTO מקוצר לשורה ברשימה: עיר ורחוב בלי מספר בית; IsAssigned ו-IsExpired מחושבים. (TagNames - שלב 7.)
+namespace BabyLink.Application.DTOs.ServiceRequests;
+
+public class ServiceRequestListItemDto
+{
+    public int Id { get; set; }
+    public DateTime StartTimeUtc { get; set; }
+    public DateTime EndTimeUtc { get; set; }
+    public string City { get; set; } = string.Empty;
+    public string Street { get; set; } = string.Empty;
+    public int ChildrenCount { get; set; }
+    public decimal HourlyRate { get; set; }
+    public bool IsAssigned { get; set; }
+    public bool IsExpired { get; set; }
+}
