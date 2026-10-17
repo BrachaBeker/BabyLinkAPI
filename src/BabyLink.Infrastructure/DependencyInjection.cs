@@ -1,6 +1,11 @@
-// AddInfrastructure: רישום שירותי Infrastructure ב-DI (בשלב זה רק AppDbContext, Scoped).
-// נקראת מ-Program.cs - זו הסיבה היחידה ש-Api מפנה ל-Infrastructure.
+// AddInfrastructure: רישום AppDbContext (Scoped), Repositories (Scoped), Security (Singleton - בלי מצב),
+// וקישור JwtOptions לסעיף "Jwt". נקראת מ-Program.cs - זו הסיבה היחידה ש-Api מפנה ל-Infrastructure.
+using BabyLink.Application.Interfaces.Repositories;
+using BabyLink.Application.Interfaces.Security;
+using BabyLink.Application.Options;
 using BabyLink.Infrastructure.Persistence;
+using BabyLink.Infrastructure.Repositories;
+using BabyLink.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +23,13 @@ public static class DependencyInjection
         }
 
         services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+
+        services.Configure<JwtOptions>(config.GetSection(JwtOptions.SectionName));
+
+        services.AddScoped<IUserRepository, UserRepository>();
+
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
+        services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
 
         return services;
     }

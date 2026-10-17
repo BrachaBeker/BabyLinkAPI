@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using BabyLink.Api.Middleware;
 using BabyLink.Application;
+using BabyLink.Application.Interfaces.Security;
 using BabyLink.Application.Options;
 using BabyLink.Infrastructure;
 using BabyLink.Infrastructure.Persistence;
@@ -97,7 +98,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await DataSeeder.SeedAsync(db, app.Lifetime.ApplicationStopping);
+    var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+    await DataSeeder.SeedAsync(db, passwordHasher, app.Lifetime.ApplicationStopping);
 }
 
 // ---------- Pipeline (הסדר חשוב!) ----------
