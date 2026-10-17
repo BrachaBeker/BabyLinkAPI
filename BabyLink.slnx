@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BabyLink.Api/BabyLink.Api.csproj" />
+    <Project Path="src/BabyLink.Application/BabyLink.Application.csproj" />
+    <Project Path="src/BabyLink.Domain/BabyLink.Domain.csproj" />
+    <Project Path="src/BabyLink.Infrastructure/BabyLink.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BabyLink.Tests/BabyLink.Tests.csproj" />
+  </Folder>
+</Solution>
