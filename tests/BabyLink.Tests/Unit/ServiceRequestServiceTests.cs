@@ -140,6 +140,44 @@ public class ServiceRequestServiceTests
         VerifyNotSaved();
     }
 
+    [Fact]
+    public async Task GetByIdAsync_WhenOtherBabysitter_HidesAssignedBabysitter()
+    {
+        SetupGetById(CreateAssignedRequestWithBabysitter());
+
+        var result = await _service.GetByIdAsync(RequestId, OtherBabysitterId, CancellationToken.None);
+
+        Assert.True(result.IsAssigned);
+        Assert.Null(result.AssignedBabysitterId);
+        Assert.Null(result.AssignedBabysitterFullName);
+        Assert.Null(result.AssignedBabysitterPhone);
+        Assert.Null(result.AssignedAtUtc);
+    }
+
+    [Theory]
+    [InlineData(ParentId)]
+    [InlineData(BabysitterId)]
+    public async Task GetByIdAsync_WhenParentOrAssignedBabysitter_ShowsAssignedBabysitter(int currentUserId)
+    {
+        SetupGetById(CreateAssignedRequestWithBabysitter());
+
+        var result = await _service.GetByIdAsync(RequestId, currentUserId, CancellationToken.None);
+
+        Assert.Equal(BabysitterId, result.AssignedBabysitterId);
+        Assert.Equal("Sitter", result.AssignedBabysitterFullName);
+        Assert.Equal("050-0000000", result.AssignedBabysitterPhone);
+    }
+
+    private static ServiceRequest CreateAssignedRequestWithBabysitter()
+    {
+        var request = CreateRequest(assignedBabysitterId: BabysitterId);
+        request.AssignedBabysitter = new User { Id = BabysitterId, FullName = "Sitter", Phone = "050-0000000", Role = UserRole.Babysitter };
+        return request;
+    }
+
+    private void SetupGetById(ServiceRequest request) =>
+        _repository.Setup(r => r.GetByIdAsync(RequestId, It.IsAny<CancellationToken>())).ReturnsAsync(request);
+
     private void SetupGetForUpdate(ServiceRequest request) =>
         _repository.Setup(r => r.GetForUpdateAsync(RequestId, It.IsAny<CancellationToken>())).ReturnsAsync(request);
 

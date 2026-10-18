@@ -21,12 +21,12 @@ public class ServiceRequestService(
 {
     private static readonly TimeSpan MaxDuration = TimeSpan.FromHours(24);
 
-    public async Task<PagedResult<ServiceRequestListItemDto>> GetPagedAsync(ServiceRequestQueryParameters query, int currentUserId, CancellationToken cancellationToken)
+    public async Task<PagedResult<ServiceRequestListItemDto>> GetPagedAsync(ServiceRequestQueryParameters query, int currentUserId, bool isBabysitter, CancellationToken cancellationToken)
     {
         query.FromUtc = ToUtc(query.FromUtc);
         query.ToUtc = ToUtc(query.ToUtc);
 
-        var page = await repository.GetPagedAsync(query, currentUserId, cancellationToken);
+        var page = await repository.GetPagedAsync(query, currentUserId, isBabysitter, cancellationToken);
 
         return new PagedResult<ServiceRequestListItemDto>
         {
@@ -37,10 +37,21 @@ public class ServiceRequestService(
         };
     }
 
-    public async Task<ServiceRequestDetailsDto> GetByIdAsync(int id, CancellationToken cancellationToken)
+    public async Task<ServiceRequestDetailsDto> GetByIdAsync(int id, int currentUserId, CancellationToken cancellationToken)
     {
         var request = await repository.GetByIdAsync(id, cancellationToken) ?? throw NotFound(id);
-        return mapper.Map<ServiceRequestDetailsDto>(request);
+        var dto = mapper.Map<ServiceRequestDetailsDto>(request);
+
+        // פרטיות: מי תפסה את הבקשה - רק ההורה שפרסם והשמרטפית שתפסה רואים. לשאר נשאר רק IsAssigned.
+        if (currentUserId != request.ParentId && currentUserId != request.AssignedBabysitterId)
+        {
+            dto.AssignedBabysitterId = null;
+            dto.AssignedBabysitterFullName = null;
+            dto.AssignedBabysitterPhone = null;
+            dto.AssignedAtUtc = null;
+        }
+
+        return dto;
     }
 
     public async Task<ServiceRequestDetailsDto> CreateAsync(CreateServiceRequestDto dto, int parentId, CancellationToken cancellationToken)
@@ -60,7 +71,7 @@ public class ServiceRequestService(
         logger.LogInformation("Service request {RequestId} created by parent {ParentId}", request.Id, parentId);
 
         // טעינה מחדש - כדי שהתשובה תכלול את פרטי ההורה.
-        return await GetByIdAsync(request.Id, cancellationToken);
+        return await GetByIdAsync(request.Id, parentId, cancellationToken);
     }
 
     public async Task UpdateAsync(int id, UpdateServiceRequestDto dto, int parentId, CancellationToken cancellationToken)
@@ -140,7 +151,7 @@ public class ServiceRequestService(
         logger.LogInformation("Service request {RequestId} assigned to babysitter {BabysitterId}", requestId, babysitterId);
 
         // טעינה מחדש - כדי שהתשובה תכלול את פרטי השמרטפית.
-        return await GetByIdAsync(requestId, cancellationToken);
+        return await GetByIdAsync(requestId, babysitterId, cancellationToken);
     }
 
     private async Task<ServiceRequest> GetOwnedForUpdateAsync(int id, int parentId, CancellationToken cancellationToken)

@@ -13,7 +13,7 @@ public static class DataSeeder
 
     private const string Baby = "תינוק";
     private const string Homework = "עזרה בשיעורים";
-    private const string Pets = "בעלי חיים בבית";
+    private const string SleepWatch = "שמירה בזמן שינה";
     private const string NightShift = "משמרת לילה";
     private const string SpecialNeeds = "צרכים מיוחדים";
 
@@ -23,7 +23,7 @@ public static class DataSeeder
 
         if (!await db.Tags.AnyAsync(cancellationToken))
         {
-            db.Tags.AddRange(new[] { Baby, Homework, Pets, NightShift, SpecialNeeds }.Select(name => new Tag { Name = name }));
+            db.Tags.AddRange(new[] { Baby, Homework, SleepWatch, NightShift, SpecialNeeds }.Select(name => new Tag { Name = name }));
             await db.SaveChangesAsync(cancellationToken);
         }
 
@@ -83,10 +83,10 @@ public static class DataSeeder
         db.ServiceRequests.AddRange(
             Request(parent1, 1, 15, 4, "ירושלים", "הרצל", "12", 2, 45m, "שני ילדים, 4 ו-7", null, Homework),
             Request(parent1, 2, 16, 3, "ירושלים", "שדרות הרצל", "5א", 1, 50m, "תינוקת בת שנה", null, Baby),
-            Request(parent1, 3, 17, 5, "ירושלים", "יפו", "101", 3, 55m, null, sitter1, Pets, Homework),
+            Request(parent1, 3, 17, 5, "ירושלים", "יפו", "101", 3, 55m, null, sitter1, SleepWatch, Homework),
             Request(parent1, 4, 14, 3, "ירושלים", "בן יהודה", "8", 2, 40m),
             Request(parent2, 1, 13, 4, "בני ברק", "רבי עקיבא", "54", 4, 60m, "ארבעה ילדים, עזרה בארוחת ערב", null, Baby, Homework),
-            Request(parent2, 2, 15, 3, "בני ברק", "ז'בוטינסקי", "120", 2, 45m, null, sitter2, Pets),
+            Request(parent2, 2, 15, 3, "בני ברק", "ז'בוטינסקי", "120", 2, 45m, null, sitter2, SleepWatch),
             Request(parent2, 5, 18, 6, "בני ברק", "רבי עקיבא", "3", 3, 50m, "משמרת ערב", null, NightShift),
             Request(parent2, 3, 9, 8, "תל אביב", "דיזנגוף", "200", 1, 65m, null, null, Baby, SpecialNeeds),
             Request(parent1, 6, 15, 3, "חיפה", "הרצל", "40", 2, 42m, null, sitter1),

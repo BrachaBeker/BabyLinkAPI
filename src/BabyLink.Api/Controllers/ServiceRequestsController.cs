@@ -23,7 +23,8 @@ public class ServiceRequestsController(IServiceRequestService service) : Control
     public async Task<ActionResult<PagedResult<ServiceRequestListItemDto>>> GetAll(
         [FromQuery] ServiceRequestQueryParameters query, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetPagedAsync(query, User.GetUserId(), cancellationToken));
+        var isBabysitter = User.IsInRole(nameof(UserRole.Babysitter));
+        return Ok(await service.GetPagedAsync(query, User.GetUserId(), isBabysitter, cancellationToken));
     }
 
     [HttpGet("{id:int}")]
@@ -31,7 +32,7 @@ public class ServiceRequestsController(IServiceRequestService service) : Control
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ServiceRequestDetailsDto>> GetById([FromRoute] int id, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetByIdAsync(id, cancellationToken));
+        return Ok(await service.GetByIdAsync(id, User.GetUserId(), cancellationToken));
     }
 
     [HttpPost]

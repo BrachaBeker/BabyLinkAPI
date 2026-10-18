@@ -26,7 +26,8 @@ public class CreateServiceRequestDto
     [Range(1, 10)]
     public int ChildrenCount { get; set; }
 
-    [Range(typeof(decimal), "1", "1000")]
+    // תעריף מינימום: 20 ש"ח לשעה.
+    [Range(typeof(decimal), "20", "1000", ErrorMessage = "התעריף לשעה חייב להיות בין 20 ל-1000 ש\"ח.")]
     public decimal HourlyRate { get; set; }
 
     [MaxLength(1000)]

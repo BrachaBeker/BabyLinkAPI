@@ -14,9 +14,22 @@ public class ServiceRequestRepository(AppDbContext db) : IServiceRequestReposito
 {
     private const string LikeEscape = "\\";
 
-    public async Task<PagedResult<ServiceRequest>> GetPagedAsync(ServiceRequestQueryParameters query, int currentUserId, CancellationToken cancellationToken)
+    public async Task<PagedResult<ServiceRequest>> GetPagedAsync(ServiceRequestQueryParameters query, int currentUserId, bool isBabysitter, CancellationToken cancellationToken)
     {
         IQueryable<ServiceRequest> requests = db.ServiceRequests.AsNoTracking();
+        var now = DateTime.UtcNow;
+
+        // שמרטפית רואה רק בקשות פנויות או בקשות שהיא עצמה תפסה - לא בקשות של שמרטפיות אחרות.
+        if (isBabysitter)
+        {
+            requests = requests.Where(r => r.AssignedBabysitterId == null || r.AssignedBabysitterId == currentUserId);
+        }
+
+        // ברירת מחדל: בלי בקשות שמועד ההתחלה שלהן עבר.
+        if (!query.IncludePast)
+        {
+            requests = requests.Where(r => r.StartTimeUtc > now);
+        }
 
         if (!string.IsNullOrWhiteSpace(query.City))
         {
@@ -54,7 +67,6 @@ public class ServiceRequestRepository(AppDbContext db) : IServiceRequestReposito
 
         if (query.OnlyAvailable)
         {
-            var now = DateTime.UtcNow;
             requests = requests.Where(r => r.AssignedBabysitterId == null && r.StartTimeUtc > now);
         }
 

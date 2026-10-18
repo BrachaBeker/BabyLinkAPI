@@ -8,8 +8,9 @@ namespace BabyLink.Application.Interfaces.Repositories;
 
 public interface IServiceRequestRepository
 {
-    // סינון, מיון ו-Pagination בתוך השאילתה. currentUserId משמש לסינון "mine".
-    Task<PagedResult<ServiceRequest>> GetPagedAsync(ServiceRequestQueryParameters query, int currentUserId, CancellationToken cancellationToken);
+    // סינון, מיון ו-Pagination בתוך השאילתה. currentUserId משמש לסינון "mine",
+    // ו-isBabysitter להסתרת בקשות שנתפסו ע"י שמרטפית אחרת.
+    Task<PagedResult<ServiceRequest>> GetPagedAsync(ServiceRequestQueryParameters query, int currentUserId, bool isBabysitter, CancellationToken cancellationToken);
 
     // קריאה בלבד (AsNoTracking), כולל ההורה והשמרטפית.
     Task<ServiceRequest?> GetByIdAsync(int id, CancellationToken cancellationToken);

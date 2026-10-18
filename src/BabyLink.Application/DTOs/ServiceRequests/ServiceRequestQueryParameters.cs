@@ -21,6 +21,9 @@ public class ServiceRequestQueryParameters
     public bool OnlyAvailable { get; set; }
     public bool Mine { get; set; }
 
+    // ברירת מחדל: רק בקשות שמועד ההתחלה שלהן עוד לא הגיע. true - כולל בקשות שעבר זמנן.
+    public bool IncludePast { get; set; }
+
     [RegularExpression("^(startTime|hourlyRate)$", ErrorMessage = "sortBy must be 'startTime' or 'hourlyRate'.")]
     public string SortBy { get; set; } = "startTime";
 

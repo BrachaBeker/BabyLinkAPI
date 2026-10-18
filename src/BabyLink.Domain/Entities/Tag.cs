@@ -1,4 +1,4 @@
-// תגית לבקשה (תינוק, עזרה בשיעורים, בעלי חיים בבית...). קשר Many-to-Many עם ServiceRequest; נוצרות ב-Seed.
+// תגית לבקשה (תינוק, עזרה בשיעורים, שמירה בזמן שינה...). קשר Many-to-Many עם ServiceRequest; נוצרות ב-Seed.
 namespace BabyLink.Domain.Entities;
 
 public class Tag
