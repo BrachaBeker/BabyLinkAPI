@@ -19,6 +19,9 @@ public interface IServiceRequestService
     // ביטול בקשה שכבר נתפסה יוצר הודעה לשמרטפית.
     Task DeleteAsync(int id, int parentId, CancellationToken cancellationToken);
 
-    // הפעולה המתחרה - תפיסת בקשה.
+    // הפעולה המתחרה - תפיסת בקשה. ההורה מקבל הודעה.
     Task<ServiceRequestDetailsDto> AssignAsync(int requestId, int babysitterId, CancellationToken cancellationToken);
+
+    // ביטול שיבוץ ע"י השמרטפית שתפסה (לפני המועד). הבקשה חוזרת להמתין, וההורה מקבל הודעה.
+    Task UnassignAsync(int requestId, int babysitterId, CancellationToken cancellationToken);
 }

@@ -109,6 +109,42 @@ public sealed class ServiceRequestConcurrencyTests : IAsyncLifetime
         Assert.Equal(_babysitterAId, stored.AssignedBabysitterId);
     }
 
+    [Fact]
+    public async Task TwoContexts_UnassignAndDeleteSameRequest_SecondSaveThrowsDbUpdateConcurrencyException()
+    {
+        // ביטול שיבוץ הוא עוד פעולה מתחרה: שמרטפית A מבטלת את השיבוץ בדיוק כשההורה מבטל את הבקשה.
+        // 0. הבקשה משובצת לשמרטפית A.
+        await using (var setupCtx = CreateContext())
+        {
+            var request = await setupCtx.ServiceRequests.SingleAsync(r => r.Id == _requestId);
+            request.AssignedBabysitterId = _babysitterAId;
+            request.AssignedAtUtc = DateTime.UtcNow;
+            await setupCtx.SaveChangesAsync();
+        }
+
+        await using var sitterCtx = CreateContext();
+        await using var parentCtx = CreateContext();
+
+        // 1. שני הצדדים טוענים את הבקשה המשובצת (אותו Version).
+        var requestForSitter = await sitterCtx.ServiceRequests.SingleAsync(r => r.Id == _requestId);
+        var requestForParent = await parentCtx.ServiceRequests.SingleAsync(r => r.Id == _requestId);
+        Assert.Equal(requestForSitter.Version, requestForParent.Version);
+
+        // 2. השמרטפית מבטלת את השיבוץ ושומרת - מצליח (וה-Version מתחלף).
+        requestForSitter.AssignedBabysitterId = null;
+        requestForSitter.AssignedAtUtc = null;
+        await sitterCtx.SaveChangesAsync();
+
+        // 3. ההורה מוחק עם ה-Version הישן - ה-DELETE לא מוצא שורה.
+        parentCtx.ServiceRequests.Remove(requestForParent);
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => parentCtx.SaveChangesAsync());
+
+        // 4. ב-DB הבקשה קיימת ולא משובצת - ההורה יקבל 409, יראה את המצב החדש ויחליט שוב.
+        await using var verifyCtx = CreateContext();
+        var stored = await verifyCtx.ServiceRequests.AsNoTracking().SingleAsync(r => r.Id == _requestId);
+        Assert.Null(stored.AssignedBabysitterId);
+    }
+
     private AppDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options);
 }

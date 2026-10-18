@@ -68,11 +68,14 @@ public static class DataSeeder
             return;
         }
 
+        // בקשה עתידית שכבר נתפסה - עליה ההודעה לדוגמה "נמצאה שמרטפית!" להורה 1.
+        var takenBySitter1 = demo.Request(demo.Parent1, 3, 17, 5, "ירושלים", "יפו", "101", 3, 55m, null, demo.Sitter1, SleepWatch, Homework);
+
         db.ServiceRequests.AddRange(
             // עתידיות
             demo.Request(demo.Parent1, 1, 15, 4, "ירושלים", "הרצל", "12", 2, 45m, "שני ילדים, 4 ו-7", null, Homework),
             demo.Request(demo.Parent1, 2, 16, 3, "ירושלים", "שדרות הרצל", "5א", 1, 50m, "תינוקת בת שנה", null, Baby),
-            demo.Request(demo.Parent1, 3, 17, 5, "ירושלים", "יפו", "101", 3, 55m, null, demo.Sitter1, SleepWatch, Homework),
+            takenBySitter1,
             demo.Request(demo.Parent1, 4, 14, 3, "ירושלים", "בן יהודה", "8", 2, 40m),
             demo.Request(demo.Parent2, 1, 13, 4, "בני ברק", "רבי עקיבא", "54", 4, 60m, "ארבעה ילדים, עזרה בארוחת ערב", null, Baby, Homework),
             demo.Request(demo.Parent2, 2, 15, 3, "בני ברק", "ז'בוטינסקי", "120", 2, 45m, null, demo.Sitter2, SleepWatch),
@@ -87,20 +90,35 @@ public static class DataSeeder
             demo.Request(demo.Parent1, -4, 15, 3, "ירושלים", "הרצל", "12", 2, 40m),
             demo.Request(demo.Parent2, -3, 14, 5, "בני ברק", "רבי עקיבא", "54", 4, 55m, "ארבעה ילדים", demo.Sitter2, Baby));
 
-        // הודעה לדוגמה: ההורה ביטל בקשה ששמרטפית 1 תפסה (כדי שפעמון ההודעות לא יהיה ריק בהדגמה).
+        // הודעות לדוגמה, כדי שפעמון ההודעות לא יהיה ריק בהדגמה:
+        // לשמרטפית 1 - ההורה ביטל בקשה שתפסה; להורה 1 - שמרטפית 1 תפסה את הבקשה ביפו.
         var cancelledStart = demo.Today.AddDays(2).AddHours(17);
-        db.Notifications.Add(new Notification
-        {
-            UserId = demo.Sitter1,
-            Type = NotificationType.RequestCancelled,
-            RequestStartTimeUtc = cancelledStart,
-            RequestEndTimeUtc = cancelledStart.AddHours(3),
-            City = "בני ברק",
-            Street = "רבי עקיבא",
-            HouseNumber = "54",
-            ParentFullName = "שרה לוי",
-            CreatedAtUtc = demo.Now.AddHours(-1)
-        });
+        db.Notifications.AddRange(
+            new Notification
+            {
+                UserId = demo.Sitter1,
+                Type = NotificationType.RequestCancelled,
+                RequestStartTimeUtc = cancelledStart,
+                RequestEndTimeUtc = cancelledStart.AddHours(3),
+                City = "בני ברק",
+                Street = "רבי עקיבא",
+                HouseNumber = "54",
+                ActorFullName = "שרה לוי",
+                CreatedAtUtc = demo.Now.AddHours(-1)
+            },
+            new Notification
+            {
+                UserId = demo.Parent1,
+                Type = NotificationType.RequestAssigned,
+                Request = takenBySitter1,
+                RequestStartTimeUtc = takenBySitter1.StartTimeUtc,
+                RequestEndTimeUtc = takenBySitter1.EndTimeUtc,
+                City = takenBySitter1.City,
+                Street = takenBySitter1.Street,
+                HouseNumber = takenBySitter1.HouseNumber,
+                ActorFullName = "מיכל אברהם",
+                CreatedAtUtc = takenBySitter1.AssignedAtUtc ?? demo.Now
+            });
 
         await db.SaveChangesAsync(cancellationToken);
     }

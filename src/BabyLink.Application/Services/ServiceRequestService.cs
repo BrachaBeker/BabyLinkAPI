@@ -1,5 +1,7 @@
 // מימוש IServiceRequestService - הלב של המערכת. כל הוולידציה העסקית כאן:
-// סיום אחרי התחלה, התחלה בעתיד, עד 24 שעות; רק ההורה שיצר עורך/מוחק (403); בקשה משובצת לא נערכת (409).
+// סיום אחרי התחלה, התחלה בעתיד, עד 24 שעות; רק ההורה שיצר עורך/מוחק (403); בקשה משובצת לא נערכת (409);
+// רק השמרטפית שתפסה מבטלת את השיבוץ, ורק לפני המועד. כל שינוי מצב מול הצד השני יוצר לו הודעה,
+// באותה SaveChanges של השינוי עצמו.
 // מקרי הקצה של התחרות מתועדים ב-README. מגבלה ידועה: שתי בקשות שונות וחופפות שאותה שמרטפית תופסת
 // באותה מילישנייה - שתי שורות שונות, ולכן ה-Version לא מזהה את זה (פתרון אפשרי: Concurrency Token על User).
 using AutoMapper;
@@ -18,6 +20,7 @@ public class ServiceRequestService(
     IServiceRequestRepository repository,
     ITagRepository tagRepository,
     INotificationRepository notificationRepository,
+    IUserRepository userRepository,
     IMapper mapper,
     ILogger<ServiceRequestService> logger) : IServiceRequestService
 {
@@ -124,18 +127,8 @@ public class ServiceRequestService(
         // ההודעה נשמרת באותה SaveChanges של המחיקה, כך שאין מצב של מחיקה בלי הודעה (או להפך).
         if (request.AssignedBabysitterId is { } babysitterId)
         {
-            notificationRepository.Add(new Notification
-            {
-                UserId = babysitterId,
-                Type = NotificationType.RequestCancelled,
-                RequestStartTimeUtc = request.StartTimeUtc,
-                RequestEndTimeUtc = request.EndTimeUtc,
-                City = request.City,
-                Street = request.Street,
-                HouseNumber = request.HouseNumber,
-                ParentFullName = request.Parent.FullName,
-                CreatedAtUtc = DateTime.UtcNow
-            });
+            notificationRepository.Add(CreateNotification(
+                request, babysitterId, NotificationType.RequestCancelled, request.Parent.FullName, linkToRequest: false));
         }
 
         repository.Remove(request);
@@ -175,9 +168,13 @@ public class ServiceRequestService(
             throw new ConflictException("יש לך כבר שיבוץ אחר שחופף בזמן לבקשה הזו.");
         }
 
-        // 6. שיבוץ ושמירה. אם מישהו שמר בינתיים - ה-Repository זורק ConcurrencyConflictException (409).
+        // 6. שיבוץ, והודעה להורה ("נמצאה שמרטפית!") - באותה SaveChanges, כך שאין שיבוץ בלי הודעה (או להפך).
+        //    אם מישהו שמר בינתיים - ה-Repository זורק ConcurrencyConflictException (409), ושום דבר לא נשמר.
+        var babysitter = await userRepository.GetByIdAsync(babysitterId, cancellationToken);
         request.AssignedBabysitterId = babysitterId;
         request.AssignedAtUtc = DateTime.UtcNow;
+        notificationRepository.Add(CreateNotification(
+            request, request.ParentId, NotificationType.RequestAssigned, babysitter?.FullName ?? "שמרטפית", linkToRequest: true));
         await repository.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Service request {RequestId} assigned to babysitter {BabysitterId}", requestId, babysitterId);
@@ -185,6 +182,54 @@ public class ServiceRequestService(
         // טעינה מחדש - כדי שהתשובה תכלול את פרטי השמרטפית.
         return await GetByIdAsync(requestId, new CurrentUser(babysitterId, UserRole.Babysitter), cancellationToken);
     }
+
+    // ביטול שיבוץ ע"י השמרטפית שתפסה - הבקשה חוזרת להמתין לשמרטפית, וההורה מקבל הודעה.
+    // גם כאן ה-Version מגן: ביטול שקורה בדיוק כשמישהו אחר משנה את הבקשה (תפיסה, עריכה, מחיקה) - מי שמאחר מקבל 409.
+    public async Task UnassignAsync(int requestId, int babysitterId, CancellationToken cancellationToken)
+    {
+        var request = await repository.GetForUpdateAsync(requestId, cancellationToken) ?? throw NotFound(requestId);
+
+        if (request.AssignedBabysitterId is null)
+        {
+            throw new ConflictException("הבקשה כבר לא משובצת.");
+        }
+
+        if (request.AssignedBabysitterId != babysitterId)
+        {
+            throw new ForbiddenException("אפשר לבטל רק שיבוץ שלך.");
+        }
+
+        if (request.StartTimeUtc <= DateTime.UtcNow)
+        {
+            throw new BusinessRuleException("לא ניתן לבטל שיבוץ אחרי שמועד ההתחלה עבר.");
+        }
+
+        var babysitterName = request.AssignedBabysitter?.FullName ?? "השמרטפית";
+        request.AssignedBabysitterId = null;
+        request.AssignedBabysitter = null;
+        request.AssignedAtUtc = null;
+        notificationRepository.Add(CreateNotification(
+            request, request.ParentId, NotificationType.AssignmentCancelled, babysitterName, linkToRequest: true));
+        await repository.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Babysitter {BabysitterId} cancelled the assignment of service request {RequestId}", babysitterId, requestId);
+    }
+
+    // הודעה למשתמש עם פרטי הבקשה. linkToRequest=false כשהבקשה נמחקת (אין לאן לקשר).
+    private static Notification CreateNotification(ServiceRequest request, int recipientId, NotificationType type,
+        string actorFullName, bool linkToRequest) => new()
+    {
+        UserId = recipientId,
+        Type = type,
+        RequestId = linkToRequest ? request.Id : null,
+        RequestStartTimeUtc = request.StartTimeUtc,
+        RequestEndTimeUtc = request.EndTimeUtc,
+        City = request.City,
+        Street = request.Street,
+        HouseNumber = request.HouseNumber,
+        ActorFullName = actorFullName,
+        CreatedAtUtc = DateTime.UtcNow
+    };
 
     private async Task<ServiceRequest> GetOwnedForUpdateAsync(int id, int parentId, CancellationToken cancellationToken)
     {

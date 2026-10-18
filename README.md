@@ -40,8 +40,14 @@ BabyLink היא מערכת פשוטה לחיבור בין הורים לשמרט�
 | ו | תפיסת בקשה שמועד ההתחלה שלה עבר | **400** |
 | ז | שמרטפית תופסת בקשה שחופפת בזמן לשיבוץ קיים שלה | **409** |
 | ח | **מגבלה ידועה:** אותה שמרטפית תופסת **שתי בקשות שונות וחופפות** באותה מילישנייה (שתי לשוניות) | אלה שתי שורות שונות, ולכן ה-Version של כל בקשה לא מזהה את ההתנגשות. המצב נדיר מאוד. פתרון אפשרי: Concurrency Token גם על המשתמש, שמתעדכן בכל שיבוץ |
+| ט | שמרטפית מבטלת את השיבוץ שלה בדיוק כששמרטפית אחרת מנסה לתפוס את הבקשה | אם האחרת קראה את הבקשה לפני שהביטול נשמר - **409** ("כבר נתפסה"), ושנייה אחר כך היא יכולה לנסות שוב. אחרי הביטול - היא תופסת. אף פעם לא שתיהן |
+| י | שמרטפית מבטלת את השיבוץ בדיוק כשההורה מבטל או עורך את הבקשה | מי שמאחר מקבל **409** (Version). מוכח בבדיקת האינטגרציה `TwoContexts_UnassignAndDeleteSameRequest_...` |
+| כ | ביטול שיבוץ שכבר בוטל (לחיצה כפולה), של שמרטפית אחרת, או אחרי המועד | **409** / **403** / **400** |
 
-**ביטולים:** כדי לשמור על פשטות אין "ביטול שיבוץ". אם הורה או שמרטפית מבטלים, ההורה מוחק את הבקשה ומפרסם בקשה חדשה.
+**ביטולים:**
+- **ההורה** יכול לבטל (למחוק) בקשה בכל שלב, גם אחרי שנתפסה - הוא לא מחויב לשמרטפית שתפסה. השמרטפית מקבלת הודעה.
+- **השמרטפית** יכולה לבטל את השיבוץ שלה עד מועד ההתחלה (`DELETE .../assignment`). הבקשה חוזרת להמתין לשמרטפית, וההורה מקבל הודעה.
+- בכל שינוי כזה ההודעה לצד השני נשמרת **באותה `SaveChanges`** של השינוי עצמו - שניהם מצליחים או שניהם נכשלים.
 
 ---
 
@@ -58,9 +64,9 @@ tests/BabyLink.Tests         Unit (xUnit + Moq) + Integration (שני DbContext)
 **כיוון התלויות:** `Api → Application → Domain`, `Infrastructure → Application + Domain`. ה-Api מכיר את Infrastructure רק לצורך רישום שירותים ב-`Program.cs`. הממשקים (`IServiceRequestRepository` וכו') מוגדרים ב-Application וממומשים ב-Infrastructure (Dependency Inversion).
 
 **ישויות:** `User` (הורה או שמרטפית; להורה גם כתובת בית), `ServiceRequest` (המשאב המוגבל), `Tag`, `Notification` (הודעה למשתמש). כל ההגדרות ב-Fluent API, בלי Attributes של EF ב-Domain.
-- One-to-Many: הורה → הבקשות שפרסם (Cascade), שמרטפית → הבקשות שתפסה (Restrict), משתמש → ההודעות שלו (Cascade).
+- One-to-Many: הורה → הבקשות שפרסם (Cascade), שמרטפית → הבקשות שתפסה (Restrict), משתמש → ההודעות שלו (Cascade), בקשה → ההודעות עליה (SetNull - הודעה נשארת גם אחרי שהבקשה נמחקה).
 - Many-to-Many: `ServiceRequest` ↔ `Tag`, דרך טבלת הקישור `ServiceRequestTags`.
-- **Migrations:** `Init` (משתמשים ובקשות), `AddTags` (תגיות וטבלת הקישור), `RenamePetsTagToSleepWatch` (Migration של נתונים בלבד: התגית "בעלי חיים בבית" הוחלפה ב"שמירה בזמן שינה") ו-`AddUserAddressAndNotifications` (כתובת בית למשתמש וטבלת ההודעות).
+- **Migrations:** `Init` (משתמשים ובקשות), `AddTags` (תגיות וטבלת הקישור), `RenamePetsTagToSleepWatch` (Migration של נתונים בלבד: התגית "בעלי חיים בבית" הוחלפה ב"שמירה בזמן שינה") `AddUserAddressAndNotifications` (כתובת בית למשתמש וטבלת ההודעות) ו-`NotificationActorAndRequest` (`ParentFullName` הפך ל-`ActorFullName` ב-`RenameColumn`, כך שהנתונים נשמרים, ונוסף `RequestId` לקישור לבקשה).
 
 **Middleware Pipeline:** `ExceptionHandling → CorrelationId → RequestLogging → Swagger → CORS → Authentication → Authorization → Controllers`
 
@@ -142,12 +148,13 @@ dotnet ef migrations add <Name> -p src/BabyLink.Infrastructure -s src/BabyLink.A
 | PUT | `/api/service-requests/{id}` | Parent (היוצר בלבד) | 204, 400, 401, 403, 404, 409 |
 | DELETE | `/api/service-requests/{id}` | Parent (היוצר בלבד) | 204, 401, 403, 404, 409 |
 | PUT | `/api/service-requests/{id}/assignment` | Babysitter | 200, 400, 401, 403, 404, **409** |
+| DELETE | `/api/service-requests/{id}/assignment` | Babysitter (זו שתפסה - ביטול השיבוץ) | 204, 400, 401, 403, 404, **409** |
 | GET | `/api/tags` | מחובר | 200, 401 |
 | GET | `/api/notifications` | מחובר - ההודעות שלו | 200, 401 |
 | DELETE | `/api/notifications/{id}` | מחובר - הודעה שלו ("הבנתי") | 204, 401, 403, 404 |
 | DELETE | `/api/notifications` | מחובר - כל ההודעות שלו | 204, 401 |
 
-אין שמות פעולות ב-URL: התחברות היא "יצירת token" (`POST /api/tokens`), תפיסה היא "עדכון השיבוץ" (`PUT .../assignment`), וסגירת הודעה היא מחיקה שלה.
+אין שמות פעולות ב-URL: התחברות היא "יצירת token" (`POST /api/tokens`), תפיסה היא "עדכון השיבוץ" (`PUT .../assignment`), ביטול שיבוץ הוא מחיקה שלו (`DELETE .../assignment`), וסגירת הודעה היא מחיקה שלה.
 
 **ולידציה:**
 - **בקשה:** תעריף לשעה בין 20 ל-1000 ש"ח, 1 עד 10 ילדים, סיום אחרי התחלה, התחלה בעתיד, ומשך של עד 24 שעות.
@@ -158,7 +165,15 @@ dotnet ef migrations add <Name> -p src/BabyLink.Infrastructure -s src/BabyLink.A
 - **שמרטפית** רואה את כל הבקשות לפי הסינון. פריט ברשימה לא כולל שום פרט על השמרטפית שתפסה.
 - **זהות השמרטפית שתפסה** (`assignedBabysitterId`, שם וטלפון) מוצגת רק להורה שפרסם ולשמרטפית שתפסה. כל משתמש אחר מקבל את השדות האלה ריקים (`null`), ורואה רק פרטים לא מזהים: `isAssigned: true` ומועד התפיסה (`assignedAtUtc`).
 
-**ביטול בקשה שנתפסה:** ההורה לא מחויב לשמרטפית שתפסה, ויכול למחוק את הבקשה גם אחרי התפיסה. במקרה כזה נוצרת `Notification` לשמרטפית עם פרטי הבקשה (שנמחקה), **באותה `SaveChanges` של המחיקה** - שתיהן מצליחות או שתיהן נכשלות. השמרטפית רואה את ההודעה בכניסה הבאה שלה.
+**הודעות (`Notification`):** נוצרות בשרת, באותה `SaveChanges` של הפעולה שגרמה להן, ומוצגות בפעמון של הלקוח:
+
+| סוג | מתי | למי |
+|---|---|---|
+| `RequestAssigned` | שמרטפית תפסה בקשה ("נמצאה שמרטפית!") | להורה, עם קישור לבקשה |
+| `AssignmentCancelled` | השמרטפית ביטלה את השיבוץ, והבקשה חזרה להמתין | להורה, עם קישור לבקשה |
+| `RequestCancelled` | ההורה ביטל בקשה שהשמרטפית כבר תפסה | לשמרטפית (בלי קישור - הבקשה נמחקה) |
+
+כל הודעה שומרת את פרטי הבקשה ואת שם מי שביצע את הפעולה (`actorFullName`), כך שהיא נשארת ברורה גם אחרי שהבקשה נמחקה.
 
 **סינון, מיון ו-Pagination ב-`GET /api/service-requests`** (הכול מתבצע בתוך שאילתת ה-SQL, כולל `OFFSET/LIMIT`):
 

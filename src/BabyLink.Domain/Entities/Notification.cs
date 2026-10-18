@@ -14,13 +14,19 @@ public class Notification
 
     public NotificationType Type { get; set; }
 
-    // פרטי הבקשה שההודעה עוסקת בה.
+    // הבקשה שההודעה עוסקת בה - כל עוד היא קיימת (בקשה שנמחקה -> null).
+    public int? RequestId { get; set; }
+    public ServiceRequest? Request { get; set; }
+
+    // פרטי הבקשה (נשמרים גם אחרי שהבקשה נמחקה).
     public DateTime RequestStartTimeUtc { get; set; }
     public DateTime RequestEndTimeUtc { get; set; }
     public string City { get; set; } = string.Empty;
     public string Street { get; set; } = string.Empty;
     public string HouseNumber { get; set; } = string.Empty;
-    public string ParentFullName { get; set; } = string.Empty;
+
+    // מי ביצע את הפעולה: ההורה שביטל, או השמרטפית שתפסה / ביטלה את השיבוץ.
+    public string ActorFullName { get; set; } = string.Empty;
 
     public DateTime CreatedAtUtc { get; set; }
 }

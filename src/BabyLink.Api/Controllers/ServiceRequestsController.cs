@@ -86,4 +86,18 @@ public class ServiceRequestsController(IServiceRequestService service) : Control
     {
         return Ok(await service.AssignAsync(id, User.GetUserId(), cancellationToken));
     }
+
+    // ביטול השיבוץ ע"י השמרטפית שתפסה ("מחיקת השיבוץ"). 409 = הבקשה כבר לא משובצת, או שמישהו שינה אותה בדיוק עכשיו.
+    [HttpDelete("{id:int}/assignment")]
+    [Authorize(Roles = nameof(UserRole.Babysitter))]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Unassign([FromRoute] int id, CancellationToken cancellationToken)
+    {
+        await service.UnassignAsync(id, User.GetUserId(), cancellationToken);
+        return NoContent();
+    }
 }

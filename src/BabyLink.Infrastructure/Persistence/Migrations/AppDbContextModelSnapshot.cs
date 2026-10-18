@@ -30,6 +30,11 @@ namespace BabyLink.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("ActorFullName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("City")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -43,13 +48,11 @@ namespace BabyLink.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<string>("ParentFullName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
                     b.Property<DateTime>("RequestEndTimeUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("RequestId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("RequestStartTimeUtc")
                         .HasColumnType("timestamp with time zone");
@@ -68,6 +71,8 @@ namespace BabyLink.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RequestId");
 
                     b.HasIndex("UserId");
 
@@ -242,11 +247,18 @@ namespace BabyLink.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("BabyLink.Domain.Entities.Notification", b =>
                 {
+                    b.HasOne("BabyLink.Domain.Entities.ServiceRequest", "Request")
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("BabyLink.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Request");
 
                     b.Navigation("User");
                 });

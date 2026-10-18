@@ -24,6 +24,7 @@ public class ServiceRequestServiceTests
     private readonly Mock<IServiceRequestRepository> _repository = new();
     private readonly Mock<ITagRepository> _tagRepository = new();
     private readonly Mock<INotificationRepository> _notificationRepository = new();
+    private readonly Mock<IUserRepository> _userRepository = new();
     private readonly ServiceRequestService _service;
 
     public ServiceRequestServiceTests()
@@ -32,12 +33,15 @@ public class ServiceRequestServiceTests
             cfg => cfg.AddMaps(typeof(ServiceRequestProfile).Assembly),
             NullLoggerFactory.Instance).CreateMapper();
 
+        _userRepository.Setup(u => u.GetByIdAsync(BabysitterId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new User { Id = BabysitterId, FullName = "Sitter", Role = UserRole.Babysitter });
+
         _service = new ServiceRequestService(_repository.Object, _tagRepository.Object, _notificationRepository.Object,
-            mapper, NullLogger<ServiceRequestService>.Instance);
+            _userRepository.Object, mapper, NullLogger<ServiceRequestService>.Instance);
     }
 
     [Fact]
-    public async Task AssignAsync_WhenAvailable_AssignsBabysitter()
+    public async Task AssignAsync_WhenAvailable_AssignsBabysitterAndNotifiesParent()
     {
         var request = CreateRequest();
         SetupGetForUpdate(request);
@@ -48,6 +52,12 @@ public class ServiceRequestServiceTests
         Assert.Equal(BabysitterId, request.AssignedBabysitterId);
         Assert.NotNull(request.AssignedAtUtc);
         Assert.True(result.IsAssigned);
+        // "נמצאה שמרטפית!" להורה, עם קישור לבקשה
+        _notificationRepository.Verify(n => n.Add(It.Is<Notification>(x =>
+            x.UserId == ParentId &&
+            x.Type == NotificationType.RequestAssigned &&
+            x.RequestId == RequestId &&
+            x.ActorFullName == "Sitter")), Times.Once);
         _repository.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -83,6 +93,8 @@ public class ServiceRequestServiceTests
 
         Assert.Equal(BabysitterId, result.AssignedBabysitterId);
         VerifyNotSaved();
+        // לחיצה כפולה לא שולחת להורה הודעה נוספת
+        _notificationRepository.Verify(n => n.Add(It.IsAny<Notification>()), Times.Never);
     }
 
     [Fact]
@@ -192,7 +204,8 @@ public class ServiceRequestServiceTests
             x.UserId == BabysitterId &&
             x.Type == NotificationType.RequestCancelled &&
             x.RequestStartTimeUtc == request.StartTimeUtc &&
-            x.ParentFullName == "Parent")), Times.Once);
+            x.RequestId == null &&
+            x.ActorFullName == "Parent")), Times.Once);
         _repository.Verify(r => r.Remove(request), Times.Once);
         _repository.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -206,6 +219,72 @@ public class ServiceRequestServiceTests
 
         _notificationRepository.Verify(n => n.Add(It.IsAny<Notification>()), Times.Never);
         _repository.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // ---------- ביטול שיבוץ ע"י השמרטפית ----------
+
+    [Fact]
+    public async Task UnassignAsync_WhenMine_ClearsAssignmentAndNotifiesParent()
+    {
+        var request = CreateAssignedRequestWithBabysitter();
+        SetupGetForUpdate(request);
+
+        await _service.UnassignAsync(RequestId, BabysitterId, CancellationToken.None);
+
+        Assert.Null(request.AssignedBabysitterId);
+        Assert.Null(request.AssignedAtUtc);
+        _notificationRepository.Verify(n => n.Add(It.Is<Notification>(x =>
+            x.UserId == ParentId &&
+            x.Type == NotificationType.AssignmentCancelled &&
+            x.RequestId == RequestId &&
+            x.ActorFullName == "Sitter")), Times.Once);
+        _repository.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UnassignAsync_WhenAssignedToOtherBabysitter_ThrowsForbidden()
+    {
+        SetupGetForUpdate(CreateRequest(assignedBabysitterId: OtherBabysitterId));
+
+        await Assert.ThrowsAsync<ForbiddenException>(
+            () => _service.UnassignAsync(RequestId, BabysitterId, CancellationToken.None));
+
+        VerifyNotSaved();
+    }
+
+    [Fact]
+    public async Task UnassignAsync_WhenNotAssigned_ThrowsConflict()
+    {
+        // למשל לחיצה כפולה על "ביטול השיבוץ", או שההורה ביטל בינתיים
+        SetupGetForUpdate(CreateRequest());
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => _service.UnassignAsync(RequestId, BabysitterId, CancellationToken.None));
+
+        VerifyNotSaved();
+    }
+
+    [Fact]
+    public async Task UnassignAsync_WhenStartTimePassed_ThrowsBusinessRule()
+    {
+        SetupGetForUpdate(CreateRequest(assignedBabysitterId: BabysitterId, startUtc: DateTime.UtcNow.AddHours(-1)));
+
+        await Assert.ThrowsAsync<BusinessRuleException>(
+            () => _service.UnassignAsync(RequestId, BabysitterId, CancellationToken.None));
+
+        VerifyNotSaved();
+    }
+
+    [Fact]
+    public async Task UnassignAsync_WhenRepositoryThrowsConcurrencyConflict_PropagatesConflict()
+    {
+        // מישהו שינה את הבקשה בין הקריאה לשמירה (למשל ההורה ביטל אותה באותו רגע) - 409.
+        SetupGetForUpdate(CreateAssignedRequestWithBabysitter());
+        _repository.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyConflictException());
+
+        await Assert.ThrowsAsync<ConcurrencyConflictException>(
+            () => _service.UnassignAsync(RequestId, BabysitterId, CancellationToken.None));
     }
 
     private static ServiceRequest CreateAssignedRequestWithBabysitter()
