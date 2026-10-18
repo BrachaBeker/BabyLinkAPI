@@ -2,7 +2,7 @@
 
 BabyLink היא מערכת פשוטה לחיבור בין הורים לשמרטפיות. הורה מפרסם בקשה (מועד, כתובת, מספר ילדים, תעריף לשעה ותגיות כמו "תינוק" או "עזרה בשיעורים"). שמרטפיות רואות את כל הבקשות, מסננות לפי עיר, רחוב, זמן, תגית ותעריף, ו**הראשונה שתופסת בקשה מקבלת אותה**.
 
-> 🔗 שרת: https://babylink-api.onrender.com · Swagger: https://babylink-api.onrender.com/swagger · לקוח: `<קישור ל-Render>` · Repository הלקוח: `<קישור ל-GitHub>`
+> 🔗 שרת: https://babylink-api.onrender.com · Swagger: https://babylink-api.onrender.com/swagger · לקוח: https://babylinkclient.onrender.com · Repository הלקוח: https://github.com/BrachaBeker/BabyLinkClient
 
 ---
 
