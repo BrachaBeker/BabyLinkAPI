@@ -107,7 +107,7 @@ dotnet run --project src/BabyLink.Api
 dotnet test
 ```
 
-14 בדיקות: 9 Unit Tests ל-`ServiceRequestService` (כולל המקרה התקין והמקרה הנדחה של תפיסת בקשה), 3 ל-`AuthService`, ו-2 בדיקות אינטגרציה עם שני `DbContext`. בדיקות האינטגרציה רצות על SQLite in-memory, ולכן לא צריך PostgreSQL כדי להריץ אותן.
+29 בדיקות: 20 Unit Tests ל-`ServiceRequestService` (כולל המקרה התקין והמקרה הנדחה של תפיסת בקשה), 3 ל-`AuthService`, 3 לוולידציה של ההרשמה (`RegisterRequestDto`: כתובת חובה רק להורה), ו-3 בדיקות אינטגרציה עם שני `DbContext` (תפיסה כפולה, תפיסה דרך ה-Repository, וביטול שיבוץ מול מחיקה). בדיקות האינטגרציה רצות על SQLite in-memory, ולכן לא צריך PostgreSQL כדי להריץ אותן.
 
 **Migration חדש (לפיתוח):**
 
@@ -208,7 +208,7 @@ dotnet ef migrations add <Name> -p src/BabyLink.Infrastructure -s src/BabyLink.A
 | `ConnectionStrings__Default` | ה-Internal Database URL (`postgresql://...`). השרת ממיר אותו אוטומטית לפורמט של Npgsql |
 | `Jwt__Key` | מחרוזת אקראית של 32 תווים לפחות (שונה מזו של הפיתוח) |
 | `AutoMapper__LicenseKey` | המפתח החינמי (אופציונלי) |
-| `Cors__AllowedOrigins__0` | כתובת הלקוח, למשל `https://babylink-client.onrender.com` |
+| `Cors__AllowedOrigins__0` | כתובת הלקוח, בלי `/` בסוף: `https://babylinkclient.onrender.com` |
 
 אין צורך להגדיר פורט: Render מעביר אותו במשתנה `PORT`, והשרת מאזין לו. ה-Migrations וה-Seed רצים בעלייה הראשונה, כך שהמערכת מוכנה מיד עם משתמשי הדמו.
 
