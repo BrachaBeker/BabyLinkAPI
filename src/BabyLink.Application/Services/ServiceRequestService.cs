@@ -21,12 +21,12 @@ public class ServiceRequestService(
 {
     private static readonly TimeSpan MaxDuration = TimeSpan.FromHours(24);
 
-    public async Task<PagedResult<ServiceRequestListItemDto>> GetPagedAsync(ServiceRequestQueryParameters query, int currentUserId, bool isBabysitter, CancellationToken cancellationToken)
+    public async Task<PagedResult<ServiceRequestListItemDto>> GetPagedAsync(ServiceRequestQueryParameters query, int currentUserId, CancellationToken cancellationToken)
     {
         query.FromUtc = ToUtc(query.FromUtc);
         query.ToUtc = ToUtc(query.ToUtc);
 
-        var page = await repository.GetPagedAsync(query, currentUserId, isBabysitter, cancellationToken);
+        var page = await repository.GetPagedAsync(query, currentUserId, cancellationToken);
 
         return new PagedResult<ServiceRequestListItemDto>
         {
@@ -42,13 +42,13 @@ public class ServiceRequestService(
         var request = await repository.GetByIdAsync(id, cancellationToken) ?? throw NotFound(id);
         var dto = mapper.Map<ServiceRequestDetailsDto>(request);
 
-        // פרטיות: מי תפסה את הבקשה - רק ההורה שפרסם והשמרטפית שתפסה רואים. לשאר נשאר רק IsAssigned.
+        // פרטיות: מי תפסה את הבקשה - רק ההורה שפרסם והשמרטפית שתפסה רואים.
+        // לשאר נשארים רק פרטים לא מזהים: IsAssigned ומועד התפיסה (AssignedAtUtc).
         if (currentUserId != request.ParentId && currentUserId != request.AssignedBabysitterId)
         {
             dto.AssignedBabysitterId = null;
             dto.AssignedBabysitterFullName = null;
             dto.AssignedBabysitterPhone = null;
-            dto.AssignedAtUtc = null;
         }
 
         return dto;

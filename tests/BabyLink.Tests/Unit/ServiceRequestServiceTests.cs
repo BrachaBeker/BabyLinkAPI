@@ -141,7 +141,7 @@ public class ServiceRequestServiceTests
     }
 
     [Fact]
-    public async Task GetByIdAsync_WhenOtherBabysitter_HidesAssignedBabysitter()
+    public async Task GetByIdAsync_WhenOtherBabysitter_HidesIdentityButKeepsAssignedTime()
     {
         SetupGetById(CreateAssignedRequestWithBabysitter());
 
@@ -151,7 +151,7 @@ public class ServiceRequestServiceTests
         Assert.Null(result.AssignedBabysitterId);
         Assert.Null(result.AssignedBabysitterFullName);
         Assert.Null(result.AssignedBabysitterPhone);
-        Assert.Null(result.AssignedAtUtc);
+        Assert.NotNull(result.AssignedAtUtc);
     }
 
     [Theory]

@@ -23,8 +23,7 @@ public class ServiceRequestsController(IServiceRequestService service) : Control
     public async Task<ActionResult<PagedResult<ServiceRequestListItemDto>>> GetAll(
         [FromQuery] ServiceRequestQueryParameters query, CancellationToken cancellationToken)
     {
-        var isBabysitter = User.IsInRole(nameof(UserRole.Babysitter));
-        return Ok(await service.GetPagedAsync(query, User.GetUserId(), isBabysitter, cancellationToken));
+        return Ok(await service.GetPagedAsync(query, User.GetUserId(), cancellationToken));
     }
 
     [HttpGet("{id:int}")]
