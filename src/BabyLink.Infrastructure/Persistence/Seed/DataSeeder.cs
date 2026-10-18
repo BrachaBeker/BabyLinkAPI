@@ -1,5 +1,6 @@
-// Seed: מריץ את ה-Migrations, ומכניס תגיות, 4 משתמשי דמו (סיסמה: Demo123!) ו-10 בקשות עם תגיות -
-// כל טבלה רק אם היא ריקה. כך המערכת עולה בלי שום התערבות ידנית ב-DB.
+// Seed: מריץ את ה-Migrations, ומכניס תגיות, 4 משתמשי דמו (סיסמה: Demo123!), בקשות (עתידיות ומהעבר)
+// והודעת ביטול לדוגמה - כל טבלה רק אם היא ריקה. כך המערכת עולה בלי שום התערבות ידנית ב-DB.
+// בנוסף, "דמו חי": אם נשארו מעט בקשות פנויות (כי בקשות ה-Seed כבר עברו), מתווסף סבב בקשות חדש.
 using BabyLink.Application.Interfaces.Security;
 using BabyLink.Domain.Entities;
 using BabyLink.Domain.Enums;
@@ -11,11 +12,19 @@ public static class DataSeeder
 {
     public const string DemoPassword = "Demo123!";
 
+    private const string Parent1Email = "parent1@babylink.dev";
+    private const string Parent2Email = "parent2@babylink.dev";
+    private const string Sitter1Email = "sitter1@babylink.dev";
+    private const string Sitter2Email = "sitter2@babylink.dev";
+
     private const string Baby = "תינוק";
     private const string Homework = "עזרה בשיעורים";
     private const string SleepWatch = "שמירה בזמן שינה";
     private const string NightShift = "משמרת לילה";
     private const string SpecialNeeds = "צרכים מיוחדים";
+
+    // פחות מזה בקשות פנויות עתידיות - מוסיפים סבב בקשות דמו חדש.
+    private const int MinOpenRequests = 3;
 
     public static async Task SeedAsync(AppDbContext db, IPasswordHasher passwordHasher, CancellationToken cancellationToken)
     {
@@ -33,10 +42,10 @@ public static class DataSeeder
             var now = DateTime.UtcNow;
 
             db.Users.AddRange(
-                new User { Email = "parent1@babylink.dev", FullName = "רחל כהן", Phone = "050-1111111", City = "ירושלים", Role = UserRole.Parent, PasswordHash = hash, CreatedAtUtc = now },
-                new User { Email = "parent2@babylink.dev", FullName = "שרה לוי", Phone = "050-2222222", City = "בני ברק", Role = UserRole.Parent, PasswordHash = hash, CreatedAtUtc = now },
-                new User { Email = "sitter1@babylink.dev", FullName = "מיכל אברהם", Phone = "050-3333333", City = "ירושלים", Role = UserRole.Babysitter, PasswordHash = hash, CreatedAtUtc = now },
-                new User { Email = "sitter2@babylink.dev", FullName = "נועה פרץ", Phone = "050-4444444", City = "בני ברק", Role = UserRole.Babysitter, PasswordHash = hash, CreatedAtUtc = now });
+                new User { Email = Parent1Email, FullName = "רחל כהן", Phone = "050-1111111", City = "ירושלים", Street = "הרצל", HouseNumber = "12", Role = UserRole.Parent, PasswordHash = hash, CreatedAtUtc = now },
+                new User { Email = Parent2Email, FullName = "שרה לוי", Phone = "050-2222222", City = "בני ברק", Street = "רבי עקיבא", HouseNumber = "54", Role = UserRole.Parent, PasswordHash = hash, CreatedAtUtc = now },
+                new User { Email = Sitter1Email, FullName = "מיכל אברהם", Phone = "050-3333333", City = "ירושלים", Role = UserRole.Babysitter, PasswordHash = hash, CreatedAtUtc = now },
+                new User { Email = Sitter2Email, FullName = "נועה פרץ", Phone = "050-4444444", City = "בני ברק", Role = UserRole.Babysitter, PasswordHash = hash, CreatedAtUtc = now });
 
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -45,53 +54,143 @@ public static class DataSeeder
         {
             await SeedServiceRequestsAsync(db, cancellationToken);
         }
+
+        await EnsureOpenRequestsAsync(db, cancellationToken);
     }
 
-    // 10 בקשות עתידיות בכמה ערים ורחובות (כדי שהסינון וה-Pagination יהיו מעניינים); 3 מהן כבר משובצות.
-    // דורש שהתגיות והמשתמשים כבר קיימים.
+    // בקשות עתידיות בכמה ערים ורחובות (כדי שהסינון וה-Pagination יהיו מעניינים), חלקן כבר משובצות;
+    // בקשות מהעבר (ללשונית "היסטוריה" של ההורה); והודעת ביטול לדוגמה לשמרטפית 1.
     private static async Task SeedServiceRequestsAsync(AppDbContext db, CancellationToken cancellationToken)
     {
-        var users = await db.Users.ToDictionaryAsync(u => u.Email, u => u.Id, cancellationToken);
-        var tags = await db.Tags.ToDictionaryAsync(t => t.Name, cancellationToken);
-        var parent1 = users["parent1@babylink.dev"];
-        var parent2 = users["parent2@babylink.dev"];
-        var sitter1 = users["sitter1@babylink.dev"];
-        var sitter2 = users["sitter2@babylink.dev"];
-
-        var now = DateTime.UtcNow;
-        var today = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
-
-        ServiceRequest Request(int parentId, int daysFromToday, int startHourUtc, int hours, string city, string street,
-            string houseNumber, int children, decimal rate, string? description = null, int? babysitterId = null,
-            params string[] tagNames) => new()
+        var demo = await DemoContext.LoadAsync(db, cancellationToken);
+        if (demo is null)
         {
-            ParentId = parentId,
-            StartTimeUtc = today.AddDays(daysFromToday).AddHours(startHourUtc),
-            EndTimeUtc = today.AddDays(daysFromToday).AddHours(startHourUtc + hours),
-            City = city,
-            Street = street,
-            HouseNumber = houseNumber,
-            ChildrenCount = children,
-            HourlyRate = rate,
-            Description = description,
-            CreatedAtUtc = now,
-            AssignedBabysitterId = babysitterId,
-            AssignedAtUtc = babysitterId is null ? null : now,
-            Tags = [.. tagNames.Select(name => tags[name])]
-        };
+            return;
+        }
 
         db.ServiceRequests.AddRange(
-            Request(parent1, 1, 15, 4, "ירושלים", "הרצל", "12", 2, 45m, "שני ילדים, 4 ו-7", null, Homework),
-            Request(parent1, 2, 16, 3, "ירושלים", "שדרות הרצל", "5א", 1, 50m, "תינוקת בת שנה", null, Baby),
-            Request(parent1, 3, 17, 5, "ירושלים", "יפו", "101", 3, 55m, null, sitter1, SleepWatch, Homework),
-            Request(parent1, 4, 14, 3, "ירושלים", "בן יהודה", "8", 2, 40m),
-            Request(parent2, 1, 13, 4, "בני ברק", "רבי עקיבא", "54", 4, 60m, "ארבעה ילדים, עזרה בארוחת ערב", null, Baby, Homework),
-            Request(parent2, 2, 15, 3, "בני ברק", "ז'בוטינסקי", "120", 2, 45m, null, sitter2, SleepWatch),
-            Request(parent2, 5, 18, 6, "בני ברק", "רבי עקיבא", "3", 3, 50m, "משמרת ערב", null, NightShift),
-            Request(parent2, 3, 9, 8, "תל אביב", "דיזנגוף", "200", 1, 65m, null, null, Baby, SpecialNeeds),
-            Request(parent1, 6, 15, 3, "חיפה", "הרצל", "40", 2, 42m, null, sitter1),
-            Request(parent2, 7, 16, 4, "חיפה", "מוריה", "17", 1, 48m, "ילד עם אלרגיה לבוטנים", null, SpecialNeeds));
+            // עתידיות
+            demo.Request(demo.Parent1, 1, 15, 4, "ירושלים", "הרצל", "12", 2, 45m, "שני ילדים, 4 ו-7", null, Homework),
+            demo.Request(demo.Parent1, 2, 16, 3, "ירושלים", "שדרות הרצל", "5א", 1, 50m, "תינוקת בת שנה", null, Baby),
+            demo.Request(demo.Parent1, 3, 17, 5, "ירושלים", "יפו", "101", 3, 55m, null, demo.Sitter1, SleepWatch, Homework),
+            demo.Request(demo.Parent1, 4, 14, 3, "ירושלים", "בן יהודה", "8", 2, 40m),
+            demo.Request(demo.Parent2, 1, 13, 4, "בני ברק", "רבי עקיבא", "54", 4, 60m, "ארבעה ילדים, עזרה בארוחת ערב", null, Baby, Homework),
+            demo.Request(demo.Parent2, 2, 15, 3, "בני ברק", "ז'בוטינסקי", "120", 2, 45m, null, demo.Sitter2, SleepWatch),
+            demo.Request(demo.Parent2, 5, 18, 6, "בני ברק", "רבי עקיבא", "3", 3, 50m, "משמרת ערב", null, NightShift),
+            demo.Request(demo.Parent2, 3, 9, 8, "תל אביב", "דיזנגוף", "200", 1, 65m, null, null, Baby, SpecialNeeds),
+            demo.Request(demo.Parent1, 6, 15, 3, "חיפה", "הרצל", "40", 2, 42m, null, demo.Sitter1),
+            demo.Request(demo.Parent2, 7, 16, 4, "חיפה", "מוריה", "17", 1, 48m, "ילד עם אלרגיה לבוטנים", null, SpecialNeeds),
+
+            // מהעבר - עסקאות שהיו, ובקשה אחת שאף שמרטפית לא תפסה
+            demo.Request(demo.Parent1, -2, 16, 4, "ירושלים", "הרצל", "12", 2, 45m, "שני ילדים, 4 ו-7", demo.Sitter1, Homework),
+            demo.Request(demo.Parent1, -6, 17, 3, "ירושלים", "הרצל", "12", 2, 50m, null, demo.Sitter2, SleepWatch),
+            demo.Request(demo.Parent1, -4, 15, 3, "ירושלים", "הרצל", "12", 2, 40m),
+            demo.Request(demo.Parent2, -3, 14, 5, "בני ברק", "רבי עקיבא", "54", 4, 55m, "ארבעה ילדים", demo.Sitter2, Baby));
+
+        // הודעה לדוגמה: ההורה ביטל בקשה ששמרטפית 1 תפסה (כדי שפעמון ההודעות לא יהיה ריק בהדגמה).
+        var cancelledStart = demo.Today.AddDays(2).AddHours(17);
+        db.Notifications.Add(new Notification
+        {
+            UserId = demo.Sitter1,
+            Type = NotificationType.RequestCancelled,
+            RequestStartTimeUtc = cancelledStart,
+            RequestEndTimeUtc = cancelledStart.AddHours(3),
+            City = "בני ברק",
+            Street = "רבי עקיבא",
+            HouseNumber = "54",
+            ParentFullName = "שרה לוי",
+            CreatedAtUtc = demo.Now.AddHours(-1)
+        });
 
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    // דמו חי: אחרי כמה ימים כל בקשות ה-Seed כבר "עברו", ולשמרטפית שנכנסת אין מה לתפוס.
+    // בכל עלייה של השרת בודקים, ואם נשארו פחות מ-MinOpenRequests בקשות פנויות - מוסיפים סבב חדש להורי הדמו.
+    private static async Task EnsureOpenRequestsAsync(AppDbContext db, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var openCount = await db.ServiceRequests.CountAsync(r => r.AssignedBabysitterId == null && r.StartTimeUtc > now, cancellationToken);
+        if (openCount >= MinOpenRequests)
+        {
+            return;
+        }
+
+        var demo = await DemoContext.LoadAsync(db, cancellationToken);
+        if (demo is null)
+        {
+            return;
+        }
+
+        db.ServiceRequests.AddRange(
+            demo.Request(demo.Parent1, 1, 16, 4, "ירושלים", "הרצל", "12", 2, 45m, "שני ילדים, 4 ו-7", null, Homework),
+            demo.Request(demo.Parent2, 2, 15, 3, "בני ברק", "רבי עקיבא", "54", 4, 55m, "ארבעה ילדים, עזרה בארוחת ערב", null, Baby),
+            demo.Request(demo.Parent1, 3, 18, 4, "ירושלים", "הרצל", "12", 2, 50m, null, null, SleepWatch),
+            demo.Request(demo.Parent2, 4, 9, 8, "תל אביב", "דיזנגוף", "200", 1, 65m, null, null, Baby, SpecialNeeds),
+            demo.Request(demo.Parent1, 5, 15, 3, "חיפה", "הרצל", "40", 2, 42m),
+            demo.Request(demo.Parent2, 6, 18, 6, "בני ברק", "רבי עקיבא", "54", 3, 50m, "משמרת ערב", null, NightShift));
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    // מה שה-Seed צריך: מזהי משתמשי הדמו, התגיות, ופונקציה שבונה בקשה יחסית ל"היום".
+    private sealed class DemoContext
+    {
+        public required int Parent1 { get; init; }
+        public required int Parent2 { get; init; }
+        public required int Sitter1 { get; init; }
+        public required int Sitter2 { get; init; }
+        public required Dictionary<string, Tag> Tags { get; init; }
+        public DateTime Now { get; } = DateTime.UtcNow;
+        public DateTime Today => DateTime.SpecifyKind(Now.Date, DateTimeKind.Utc);
+
+        // null אם משתמשי הדמו לא קיימים (למשל DB שנוצר לפני שהיו).
+        public static async Task<DemoContext?> LoadAsync(AppDbContext db, CancellationToken cancellationToken)
+        {
+            var users = await db.Users
+                .Where(u => u.Email == Parent1Email || u.Email == Parent2Email || u.Email == Sitter1Email || u.Email == Sitter2Email)
+                .ToDictionaryAsync(u => u.Email, u => u.Id, cancellationToken);
+
+            if (users.Count < 4)
+            {
+                return null;
+            }
+
+            return new DemoContext
+            {
+                Parent1 = users[Parent1Email],
+                Parent2 = users[Parent2Email],
+                Sitter1 = users[Sitter1Email],
+                Sitter2 = users[Sitter2Email],
+                Tags = await db.Tags.ToDictionaryAsync(t => t.Name, cancellationToken)
+            };
+        }
+
+        // daysFromToday שלילי = בקשה מהעבר. בקשה מהעבר "פורסמה" 3 ימים לפני המועד; עתידית - לפני 3 שעות.
+        // בקשה משובצת "נתפסה" 35 דקות אחרי הפרסום.
+        public ServiceRequest Request(int parentId, int daysFromToday, int startHourUtc, int hours, string city, string street,
+            string houseNumber, int children, decimal rate, string? description = null, int? babysitterId = null,
+            params string[] tagNames)
+        {
+            var start = Today.AddDays(daysFromToday).AddHours(startHourUtc);
+            var createdAt = start < Now ? start.AddDays(-3) : Now.AddHours(-3);
+
+            return new ServiceRequest
+            {
+                ParentId = parentId,
+                StartTimeUtc = start,
+                EndTimeUtc = start.AddHours(hours),
+                City = city,
+                Street = street,
+                HouseNumber = houseNumber,
+                ChildrenCount = children,
+                HourlyRate = rate,
+                Description = description,
+                CreatedAtUtc = createdAt,
+                AssignedBabysitterId = babysitterId,
+                AssignedAtUtc = babysitterId is null ? null : createdAt.AddMinutes(35),
+                Tags = [.. tagNames.Where(Tags.ContainsKey).Select(name => Tags[name])]
+            };
+        }
     }
 }

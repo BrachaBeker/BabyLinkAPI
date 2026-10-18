@@ -1,6 +1,6 @@
 # BabyLink – תיווך בין הורים לשמרטפיות
 
-BabyLink היא מערכת פשוטה לחיבור בין הורים לשמרטפיות. הורה מפרסם בקשה (מועד, כתובת, מספר ילדים, תעריף לשעה של 20 ש"ח לפחות, ותגיות כמו "תינוק" או "עזרה בשיעורים"). שמרטפיות רואות את הבקשות, מסננות לפי עיר, רחוב, זמן, תגית ותעריף, ו**הראשונה שתופסת בקשה מקבלת אותה**.
+BabyLink היא מערכת פשוטה לחיבור בין הורים לשמרטפיות. הורה מפרסם בקשה (מועד, כתובת, מספר ילדים, תעריף לשעה של 20 ש"ח לפחות, ותגיות כמו "תינוק" או "עזרה בשיעורים"). שמרטפיות רואות את הבקשות, מסננות לפי עיר, רחוב, זמן, תגית ותעריף, ו**הראשונה שתופסת בקשה מקבלת אותה**. ההורה לא מחויב לשמרטפית שתפסה: הוא יכול לבטל את הבקשה ולפרסם אותה מחדש, והשמרטפית מקבלת הודעה על הביטול בכניסה הבאה שלה.
 
 > 🔗 שרת: https://babylink-api.onrender.com · Swagger: https://babylink-api.onrender.com/swagger · לקוח: https://babylinkclient.onrender.com · Repository הלקוח: https://github.com/BrachaBeker/BabyLinkClient
 
@@ -57,10 +57,10 @@ tests/BabyLink.Tests         Unit (xUnit + Moq) + Integration (שני DbContext)
 
 **כיוון התלויות:** `Api → Application → Domain`, `Infrastructure → Application + Domain`. ה-Api מכיר את Infrastructure רק לצורך רישום שירותים ב-`Program.cs`. הממשקים (`IServiceRequestRepository` וכו') מוגדרים ב-Application וממומשים ב-Infrastructure (Dependency Inversion).
 
-**ישויות:** `User` (הורה או שמרטפית), `ServiceRequest` (המשאב המוגבל), `Tag`. כל ההגדרות ב-Fluent API, בלי Attributes של EF ב-Domain.
-- One-to-Many: הורה → הבקשות שפרסם (Cascade), שמרטפית → הבקשות שתפסה (Restrict).
+**ישויות:** `User` (הורה או שמרטפית; להורה גם כתובת בית), `ServiceRequest` (המשאב המוגבל), `Tag`, `Notification` (הודעה למשתמש). כל ההגדרות ב-Fluent API, בלי Attributes של EF ב-Domain.
+- One-to-Many: הורה → הבקשות שפרסם (Cascade), שמרטפית → הבקשות שתפסה (Restrict), משתמש → ההודעות שלו (Cascade).
 - Many-to-Many: `ServiceRequest` ↔ `Tag`, דרך טבלת הקישור `ServiceRequestTags`.
-- **Migrations:** `Init` (משתמשים ובקשות), `AddTags` (תגיות וטבלת הקישור) ו-`RenamePetsTagToSleepWatch` (Migration של נתונים בלבד: התגית "בעלי חיים בבית" הוחלפה ב"שמירה בזמן שינה").
+- **Migrations:** `Init` (משתמשים ובקשות), `AddTags` (תגיות וטבלת הקישור), `RenamePetsTagToSleepWatch` (Migration של נתונים בלבד: התגית "בעלי חיים בבית" הוחלפה ב"שמירה בזמן שינה") ו-`AddUserAddressAndNotifications` (כתובת בית למשתמש וטבלת ההודעות).
 
 **Middleware Pipeline:** `ExceptionHandling → CorrelationId → RequestLogging → Swagger → CORS → Authentication → Authorization → Controllers`
 
@@ -120,7 +120,9 @@ dotnet ef migrations add <Name> -p src/BabyLink.Infrastructure -s src/BabyLink.A
 | Babysitter | sitter1@babylink.dev | Demo123! |
 | Babysitter | sitter2@babylink.dev | Demo123! |
 
-ה-Seed יוצר גם 5 תגיות (תינוק, עזרה בשיעורים, שמירה בזמן שינה, משמרת לילה, צרכים מיוחדים) ו-10 בקשות עתידיות בירושלים, בני ברק, תל אביב וחיפה (3 מהן כבר משובצות).
+ה-Seed יוצר גם 5 תגיות (תינוק, עזרה בשיעורים, שמירה בזמן שינה, משמרת לילה, צרכים מיוחדים), כתובת בית להורי הדמו, 10 בקשות עתידיות בירושלים, בני ברק, תל אביב וחיפה (3 מהן כבר משובצות), 4 בקשות מהעבר (ל"היסטוריה" של ההורה), והודעת ביטול לדוגמה ל-`sitter1`.
+
+**דמו חי:** בכל עלייה של השרת, אם נשארו פחות מ-3 בקשות פנויות עתידיות (למשל כי בקשות ה-Seed כבר עברו), נוסף סבב בקשות חדש להורי הדמו. כך מי שנכנס לאתר תמיד מוצא בקשות לתפוס.
 
 **הדגמת התחרות:** פותחים שני דפדפנים (או חלון רגיל וחלון גלישה בסתר), מתחברים כ-`sitter1` וכ-`sitter2`, נכנסים לאותה בקשה פנויה ולוחצים "אני לוקחת" כמעט יחד. אחת מקבלת אישור, והשנייה מקבלת הודעה שהבקשה נתפסה.
 
@@ -132,22 +134,31 @@ dotnet ef migrations add <Name> -p src/BabyLink.Infrastructure -s src/BabyLink.A
 |---|---|---|---|
 | POST | `/api/users` | ללא (הרשמה) | 201 + Location, 400, 409 |
 | GET | `/api/users/{id}` | המשתמש עצמו בלבד | 200, 401, 403, 404 |
+| PUT | `/api/users/{id}` | המשתמש עצמו בלבד (עדכון פרופיל) | 200, 400, 401, 403, 404 |
 | POST | `/api/tokens` | ללא (התחברות) | 200, 400, 401 |
-| GET | `/api/service-requests` | מחובר | 200, 400, 401 |
-| GET | `/api/service-requests/{id}` | מחובר | 200, 401, 404 |
+| GET | `/api/service-requests` | מחובר (הורה - רק הבקשות שלו) | 200, 400, 401 |
+| GET | `/api/service-requests/{id}` | מחובר (הורה - רק בקשה שלו) | 200, 401, 403, 404 |
 | POST | `/api/service-requests` | Parent | 201 + Location, 400, 401, 403 |
 | PUT | `/api/service-requests/{id}` | Parent (היוצר בלבד) | 204, 400, 401, 403, 404, 409 |
 | DELETE | `/api/service-requests/{id}` | Parent (היוצר בלבד) | 204, 401, 403, 404, 409 |
 | PUT | `/api/service-requests/{id}/assignment` | Babysitter | 200, 400, 401, 403, 404, **409** |
 | GET | `/api/tags` | מחובר | 200, 401 |
+| GET | `/api/notifications` | מחובר - ההודעות שלו | 200, 401 |
+| DELETE | `/api/notifications/{id}` | מחובר - הודעה שלו ("הבנתי") | 204, 401, 403, 404 |
+| DELETE | `/api/notifications` | מחובר - כל ההודעות שלו | 204, 401 |
 
-אין שמות פעולות ב-URL: התחברות היא "יצירת token" (`POST /api/tokens`), ותפיסה היא "עדכון השיבוץ" (`PUT .../assignment`).
+אין שמות פעולות ב-URL: התחברות היא "יצירת token" (`POST /api/tokens`), תפיסה היא "עדכון השיבוץ" (`PUT .../assignment`), וסגירת הודעה היא מחיקה שלה.
 
-**ולידציה של בקשה:** תעריף לשעה בין 20 ל-1000 ש"ח, 1 עד 10 ילדים, סיום אחרי התחלה, התחלה בעתיד, ומשך של עד 24 שעות.
+**ולידציה:**
+- **בקשה:** תעריף לשעה בין 20 ל-1000 ש"ח, 1 עד 10 ילדים, סיום אחרי התחלה, התחלה בעתיד, ומשך של עד 24 שעות.
+- **הרשמה:** להורה חובה כתובת בית (רחוב ומספר בית - `IValidatableObject` ב-DTO, כי זה תלוי בתפקיד). ממנה ממולאת מראש הכתובת בבקשה חדשה. לשמרטפית הכתובת לא נשמרת.
 
 **נראות ופרטיות:**
-- כל משתמש מחובר רואה ברשימה את כל הבקשות שעוד לא התחילו (עם `includePast` גם את אלה שעבר זמנן). פריט ברשימה לא כולל שום פרט על השמרטפית שתפסה.
+- **הורה** רואה רק את הבקשות שהוא פרסם - ברשימה (השרת מכריח `mine`) ובפרטים (בקשה של הורה אחר -> 403).
+- **שמרטפית** רואה את כל הבקשות לפי הסינון. פריט ברשימה לא כולל שום פרט על השמרטפית שתפסה.
 - **זהות השמרטפית שתפסה** (`assignedBabysitterId`, שם וטלפון) מוצגת רק להורה שפרסם ולשמרטפית שתפסה. כל משתמש אחר מקבל את השדות האלה ריקים (`null`), ורואה רק פרטים לא מזהים: `isAssigned: true` ומועד התפיסה (`assignedAtUtc`).
+
+**ביטול בקשה שנתפסה:** ההורה לא מחויב לשמרטפית שתפסה, ויכול למחוק את הבקשה גם אחרי התפיסה. במקרה כזה נוצרת `Notification` לשמרטפית עם פרטי הבקשה (שנמחקה), **באותה `SaveChanges` של המחיקה** - שתיהן מצליחות או שתיהן נכשלות. השמרטפית רואה את ההודעה בכניסה הבאה שלה.
 
 **סינון, מיון ו-Pagination ב-`GET /api/service-requests`** (הכול מתבצע בתוך שאילתת ה-SQL, כולל `OFFSET/LIMIT`):
 
@@ -161,6 +172,7 @@ dotnet ef migrations add <Name> -p src/BabyLink.Infrastructure -s src/BabyLink.A
 | `onlyAvailable` | רק בקשות פנויות שעוד לא התחילו |
 | `mine` | הבקשות שלי (שפרסמתי או שתפסתי) |
 | `includePast` | גם בקשות שמועד ההתחלה שלהן עבר. ברירת המחדל (`false`): רק בקשות עתידיות, גם ב-`mine` |
+| `status` | `open` (ממתינה לשמרטפית), `assigned` (שובצה ועוד לא התחילה) או `past` (מועדה עבר). קובע גם את טווח הזמן |
 | `sortBy`, `descending` | מיון לפי `startTime` (ברירת מחדל) או `hourlyRate` |
 | `page`, `pageSize` | עמוד (ברירת מחדל 1) וגודל עמוד (ברירת מחדל 10, מקסימום 50) |
 

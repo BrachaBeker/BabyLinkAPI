@@ -11,6 +11,11 @@ public class User
     public string FullName { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
+
+    // כתובת הבית - חובה להורה (ממלאת מראש את הכתובת בבקשה חדשה), לא נשמרת לשמרטפית.
+    public string? Street { get; set; }
+    public string? HouseNumber { get; set; }
+
     public UserRole Role { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 

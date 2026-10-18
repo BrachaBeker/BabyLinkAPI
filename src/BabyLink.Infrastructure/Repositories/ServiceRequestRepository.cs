@@ -19,11 +19,15 @@ public class ServiceRequestRepository(AppDbContext db) : IServiceRequestReposito
         IQueryable<ServiceRequest> requests = db.ServiceRequests.AsNoTracking();
         var now = DateTime.UtcNow;
 
-        // ברירת מחדל: בלי בקשות שמועד ההתחלה שלהן עבר.
-        if (!query.IncludePast)
+        // סטטוס (אם נשלח) קובע גם את טווח הזמן. בלעדיו - ברירת המחדל היא רק בקשות שעוד לא התחילו.
+        requests = query.Status switch
         {
-            requests = requests.Where(r => r.StartTimeUtc > now);
-        }
+            "open" => requests.Where(r => r.AssignedBabysitterId == null && r.StartTimeUtc > now),
+            "assigned" => requests.Where(r => r.AssignedBabysitterId != null && r.StartTimeUtc > now),
+            "past" => requests.Where(r => r.StartTimeUtc <= now),
+            _ when !query.IncludePast => requests.Where(r => r.StartTimeUtc > now),
+            _ => requests
+        };
 
         if (!string.IsNullOrWhiteSpace(query.City))
         {

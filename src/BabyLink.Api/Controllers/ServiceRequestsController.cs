@@ -1,5 +1,6 @@
 // /api/service-requests - כל ה-endpoints דורשים התחברות; יצירה/עריכה/מחיקה רק להורה, תפיסה רק לשמרטפית.
-// ה-Controller דק: שולף UserId מה-JWT, קורא ל-Service ומחזיר סטטוס. אין כאן לוגיקה עסקית.
+// ה-Controller דק: שולף את המשתמש מה-JWT, קורא ל-Service ומחזיר סטטוס. אין כאן לוגיקה עסקית.
+// הורה רואה רק את הבקשות שלו (ברשימה ובפרטים) - נאכף ב-Service.
 using BabyLink.Api.Extensions;
 using BabyLink.Application.DTOs.Common;
 using BabyLink.Application.DTOs.ServiceRequests;
@@ -23,15 +24,16 @@ public class ServiceRequestsController(IServiceRequestService service) : Control
     public async Task<ActionResult<PagedResult<ServiceRequestListItemDto>>> GetAll(
         [FromQuery] ServiceRequestQueryParameters query, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetPagedAsync(query, User.GetUserId(), cancellationToken));
+        return Ok(await service.GetPagedAsync(query, User.GetCurrentUser(), cancellationToken));
     }
 
     [HttpGet("{id:int}")]
     [ProducesResponseType<ServiceRequestDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ServiceRequestDetailsDto>> GetById([FromRoute] int id, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetByIdAsync(id, User.GetUserId(), cancellationToken));
+        return Ok(await service.GetByIdAsync(id, User.GetCurrentUser(), cancellationToken));
     }
 
     [HttpPost]

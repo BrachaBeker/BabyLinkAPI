@@ -1,6 +1,8 @@
-// GetUserId: שליפת ה-UserId מה-Claim "sub" של ה-JWT.
-// ה-UserId תמיד מגיע מה-token ולא מה-Body, כדי שאי אפשר יהיה להתחזות.
+// GetUserId: שליפת ה-UserId מה-Claim "sub" של ה-JWT. GetCurrentUser: המזהה והתפקיד יחד.
+// ה-UserId והתפקיד תמיד מגיעים מה-token ולא מה-Body, כדי שאי אפשר יהיה להתחזות.
 using System.Security.Claims;
+using BabyLink.Application.DTOs.Common;
+using BabyLink.Domain.Enums;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace BabyLink.Api.Extensions;
@@ -14,4 +16,8 @@ public static class ClaimsPrincipalExtensions
             ? id
             : throw new InvalidOperationException("The authenticated user has no valid 'sub' claim.");
     }
+
+    // IsInRole משתמש באותו Role Claim ש-[Authorize(Roles = ...)] בודק.
+    public static CurrentUser GetCurrentUser(this ClaimsPrincipal user) =>
+        new(user.GetUserId(), user.IsInRole(nameof(UserRole.Parent)) ? UserRole.Parent : UserRole.Babysitter);
 }

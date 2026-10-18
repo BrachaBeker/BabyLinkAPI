@@ -9,6 +9,7 @@ using BabyLink.Application.Exceptions;
 using BabyLink.Application.Interfaces.Repositories;
 using BabyLink.Application.Interfaces.Services;
 using BabyLink.Domain.Entities;
+using BabyLink.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace BabyLink.Application.Services;
@@ -16,17 +17,24 @@ namespace BabyLink.Application.Services;
 public class ServiceRequestService(
     IServiceRequestRepository repository,
     ITagRepository tagRepository,
+    INotificationRepository notificationRepository,
     IMapper mapper,
     ILogger<ServiceRequestService> logger) : IServiceRequestService
 {
     private static readonly TimeSpan MaxDuration = TimeSpan.FromHours(24);
 
-    public async Task<PagedResult<ServiceRequestListItemDto>> GetPagedAsync(ServiceRequestQueryParameters query, int currentUserId, CancellationToken cancellationToken)
+    public async Task<PagedResult<ServiceRequestListItemDto>> GetPagedAsync(ServiceRequestQueryParameters query, CurrentUser currentUser, CancellationToken cancellationToken)
     {
         query.FromUtc = ToUtc(query.FromUtc);
         query.ToUtc = ToUtc(query.ToUtc);
 
-        var page = await repository.GetPagedAsync(query, currentUserId, cancellationToken);
+        // הורה רואה רק את הבקשות שהוא פרסם - בלי קשר למה שנשלח ב-Query.
+        if (currentUser.IsParent)
+        {
+            query.Mine = true;
+        }
+
+        var page = await repository.GetPagedAsync(query, currentUser.Id, cancellationToken);
 
         return new PagedResult<ServiceRequestListItemDto>
         {
@@ -37,14 +45,20 @@ public class ServiceRequestService(
         };
     }
 
-    public async Task<ServiceRequestDetailsDto> GetByIdAsync(int id, int currentUserId, CancellationToken cancellationToken)
+    public async Task<ServiceRequestDetailsDto> GetByIdAsync(int id, CurrentUser currentUser, CancellationToken cancellationToken)
     {
         var request = await repository.GetByIdAsync(id, cancellationToken) ?? throw NotFound(id);
+
+        if (currentUser.IsParent && request.ParentId != currentUser.Id)
+        {
+            throw new ForbiddenException("אפשר לצפות רק בבקשות שפרסמת.");
+        }
+
         var dto = mapper.Map<ServiceRequestDetailsDto>(request);
 
         // פרטיות: מי תפסה את הבקשה - רק ההורה שפרסם והשמרטפית שתפסה רואים.
         // לשאר נשארים רק פרטים לא מזהים: IsAssigned ומועד התפיסה (AssignedAtUtc).
-        if (currentUserId != request.ParentId && currentUserId != request.AssignedBabysitterId)
+        if (currentUser.Id != request.ParentId && currentUser.Id != request.AssignedBabysitterId)
         {
             dto.AssignedBabysitterId = null;
             dto.AssignedBabysitterFullName = null;
@@ -71,7 +85,7 @@ public class ServiceRequestService(
         logger.LogInformation("Service request {RequestId} created by parent {ParentId}", request.Id, parentId);
 
         // טעינה מחדש - כדי שהתשובה תכלול את פרטי ההורה.
-        return await GetByIdAsync(request.Id, parentId, cancellationToken);
+        return await GetByIdAsync(request.Id, new CurrentUser(parentId, UserRole.Parent), cancellationToken);
     }
 
     public async Task UpdateAsync(int id, UpdateServiceRequestDto dto, int parentId, CancellationToken cancellationToken)
@@ -80,7 +94,7 @@ public class ServiceRequestService(
 
         if (request.AssignedBabysitterId is not null)
         {
-            throw new ConflictException("לא ניתן לערוך בקשה שכבר נתפסה. אפשר למחוק אותה ולפרסם בקשה חדשה.");
+            throw new ConflictException("לא ניתן לערוך בקשה שכבר נתפסה. אפשר לבטל אותה ולפרסם בקשה חדשה.");
         }
 
         dto.StartTimeUtc = ToUtc(dto.StartTimeUtc);
@@ -103,8 +117,26 @@ public class ServiceRequestService(
 
     public async Task DeleteAsync(int id, int parentId, CancellationToken cancellationToken)
     {
-        // מחיקה מותרת גם לבקשה משובצת (כך מבטלים). ה-Version נבדק גם ב-DELETE.
+        // מחיקה מותרת גם לבקשה משובצת (כך מבטלים - ההורה לא מחויב לשמרטפית שתפסה). ה-Version נבדק גם ב-DELETE.
         var request = await GetOwnedForUpdateAsync(id, parentId, cancellationToken);
+
+        // ביטול בקשה שכבר נתפסה - השמרטפית תקבל הודעה בכניסה הבאה שלה.
+        // ההודעה נשמרת באותה SaveChanges של המחיקה, כך שאין מצב של מחיקה בלי הודעה (או להפך).
+        if (request.AssignedBabysitterId is { } babysitterId)
+        {
+            notificationRepository.Add(new Notification
+            {
+                UserId = babysitterId,
+                Type = NotificationType.RequestCancelled,
+                RequestStartTimeUtc = request.StartTimeUtc,
+                RequestEndTimeUtc = request.EndTimeUtc,
+                City = request.City,
+                Street = request.Street,
+                HouseNumber = request.HouseNumber,
+                ParentFullName = request.Parent.FullName,
+                CreatedAtUtc = DateTime.UtcNow
+            });
+        }
 
         repository.Remove(request);
         await repository.SaveChangesAsync(cancellationToken);
@@ -151,7 +183,7 @@ public class ServiceRequestService(
         logger.LogInformation("Service request {RequestId} assigned to babysitter {BabysitterId}", requestId, babysitterId);
 
         // טעינה מחדש - כדי שהתשובה תכלול את פרטי השמרטפית.
-        return await GetByIdAsync(requestId, babysitterId, cancellationToken);
+        return await GetByIdAsync(requestId, new CurrentUser(babysitterId, UserRole.Babysitter), cancellationToken);
     }
 
     private async Task<ServiceRequest> GetOwnedForUpdateAsync(int id, int parentId, CancellationToken cancellationToken)

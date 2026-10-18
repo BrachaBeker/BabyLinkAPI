@@ -1,6 +1,7 @@
 // Unit Tests (xUnit + Moq) ל-ServiceRequestService: ה-Repositories מדומים, AutoMapper אמיתי עם ה-Profiles.
 // כולל את המקרה התקין ואת המקרה הנדחה של המשאב המוגבל (תפיסת בקשה).
 using AutoMapper;
+using BabyLink.Application.DTOs.Common;
 using BabyLink.Application.DTOs.ServiceRequests;
 using BabyLink.Application.Exceptions;
 using BabyLink.Application.Interfaces.Repositories;
@@ -22,6 +23,7 @@ public class ServiceRequestServiceTests
 
     private readonly Mock<IServiceRequestRepository> _repository = new();
     private readonly Mock<ITagRepository> _tagRepository = new();
+    private readonly Mock<INotificationRepository> _notificationRepository = new();
     private readonly ServiceRequestService _service;
 
     public ServiceRequestServiceTests()
@@ -30,8 +32,8 @@ public class ServiceRequestServiceTests
             cfg => cfg.AddMaps(typeof(ServiceRequestProfile).Assembly),
             NullLoggerFactory.Instance).CreateMapper();
 
-        _service = new ServiceRequestService(_repository.Object, _tagRepository.Object, mapper,
-            NullLogger<ServiceRequestService>.Instance);
+        _service = new ServiceRequestService(_repository.Object, _tagRepository.Object, _notificationRepository.Object,
+            mapper, NullLogger<ServiceRequestService>.Instance);
     }
 
     [Fact]
@@ -145,7 +147,7 @@ public class ServiceRequestServiceTests
     {
         SetupGetById(CreateAssignedRequestWithBabysitter());
 
-        var result = await _service.GetByIdAsync(RequestId, OtherBabysitterId, CancellationToken.None);
+        var result = await _service.GetByIdAsync(RequestId, new CurrentUser(OtherBabysitterId, UserRole.Babysitter), CancellationToken.None);
 
         Assert.True(result.IsAssigned);
         Assert.Null(result.AssignedBabysitterId);
@@ -155,17 +157,55 @@ public class ServiceRequestServiceTests
     }
 
     [Theory]
-    [InlineData(ParentId)]
-    [InlineData(BabysitterId)]
-    public async Task GetByIdAsync_WhenParentOrAssignedBabysitter_ShowsAssignedBabysitter(int currentUserId)
+    [InlineData(ParentId, UserRole.Parent)]
+    [InlineData(BabysitterId, UserRole.Babysitter)]
+    public async Task GetByIdAsync_WhenParentOrAssignedBabysitter_ShowsAssignedBabysitter(int currentUserId, UserRole role)
     {
         SetupGetById(CreateAssignedRequestWithBabysitter());
 
-        var result = await _service.GetByIdAsync(RequestId, currentUserId, CancellationToken.None);
+        var result = await _service.GetByIdAsync(RequestId, new CurrentUser(currentUserId, role), CancellationToken.None);
 
         Assert.Equal(BabysitterId, result.AssignedBabysitterId);
         Assert.Equal("Sitter", result.AssignedBabysitterFullName);
         Assert.Equal("050-0000000", result.AssignedBabysitterPhone);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WhenOtherParent_ThrowsForbidden()
+    {
+        // הורה רואה רק בקשות שהוא פרסם.
+        SetupGetById(CreateRequest());
+
+        await Assert.ThrowsAsync<ForbiddenException>(
+            () => _service.GetByIdAsync(RequestId, new CurrentUser(999, UserRole.Parent), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WhenAssigned_NotifiesBabysitter()
+    {
+        var request = CreateRequest(assignedBabysitterId: BabysitterId);
+        SetupGetForUpdate(request);
+
+        await _service.DeleteAsync(RequestId, ParentId, CancellationToken.None);
+
+        _notificationRepository.Verify(n => n.Add(It.Is<Notification>(x =>
+            x.UserId == BabysitterId &&
+            x.Type == NotificationType.RequestCancelled &&
+            x.RequestStartTimeUtc == request.StartTimeUtc &&
+            x.ParentFullName == "Parent")), Times.Once);
+        _repository.Verify(r => r.Remove(request), Times.Once);
+        _repository.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WhenNotAssigned_DoesNotNotify()
+    {
+        SetupGetForUpdate(CreateRequest());
+
+        await _service.DeleteAsync(RequestId, ParentId, CancellationToken.None);
+
+        _notificationRepository.Verify(n => n.Add(It.IsAny<Notification>()), Times.Never);
+        _repository.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private static ServiceRequest CreateAssignedRequestWithBabysitter()

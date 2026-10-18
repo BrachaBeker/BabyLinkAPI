@@ -14,4 +14,7 @@ public interface IAuthService
 
     // פרטי משתמש - רק המשתמש עצמו (אחרת 403). לא קיים -> 404.
     Task<UserDto> GetUserAsync(int id, int currentUserId, CancellationToken cancellationToken);
+
+    // עדכון הפרופיל - רק המשתמש עצמו (אחרת 403). להורה חובה כתובת מלאה (אחרת 400).
+    Task<UserDto> UpdateUserAsync(int id, int currentUserId, UpdateUserDto dto, CancellationToken cancellationToken);
 }

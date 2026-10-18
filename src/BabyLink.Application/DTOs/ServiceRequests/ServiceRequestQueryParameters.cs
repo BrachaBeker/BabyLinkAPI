@@ -24,6 +24,11 @@ public class ServiceRequestQueryParameters
     // ברירת מחדל: רק בקשות שמועד ההתחלה שלהן עוד לא הגיע. true - כולל בקשות שעבר זמנן.
     public bool IncludePast { get; set; }
 
+    // סטטוס (הלשוניות של ההורה): open - ממתינה לשמרטפית, assigned - שובצה ועוד לא התחילה, past - מועדה עבר.
+    // כשנשלח, הוא קובע גם את טווח הזמן (ו-IncludePast לא משפיע).
+    [RegularExpression("^(open|assigned|past)$", ErrorMessage = "status must be 'open', 'assigned' or 'past'.")]
+    public string? Status { get; set; }
+
     [RegularExpression("^(startTime|hourlyRate)$", ErrorMessage = "sortBy must be 'startTime' or 'hourlyRate'.")]
     public string SortBy { get; set; } = "startTime";
 

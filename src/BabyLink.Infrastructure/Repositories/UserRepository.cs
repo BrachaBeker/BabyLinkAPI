@@ -17,6 +17,9 @@ public class UserRepository(AppDbContext db) : IUserRepository
     public Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
         db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
+    public Task<User?> GetForUpdateAsync(int id, CancellationToken cancellationToken) =>
+        db.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+
     public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) =>
         db.Users.AnyAsync(u => u.Email == email, cancellationToken);
 
