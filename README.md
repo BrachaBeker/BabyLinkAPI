@@ -27,7 +27,7 @@ Web API ב-ASP.NET Core (.NET 10) עם PostgreSQL ו-EF Core. **הורה** מפ�
 | שכבות | 4 פרויקטים ב-`BabyLink.slnx` (Clean Architecture): `Domain` (ישויות, אפס תלויות), `Application` (Services, ממשקים, DTOs, AutoMapper), `Infrastructure` (EF Core, Repositories, JWT), `Api` (Controllers, Middleware). Controllers עובדים רק מול Services |
 | DI | הזרקה ב-constructor. ממשקים ב-Application, מימושים ב-Infrastructure, רישום ב-`Program.cs`. DbContext, Repositories ו-Services הם Scoped; Singleton שמחזיק Scoped היה משתף DbContext אחד בין בקשות |
 | EF Core | Code-First, `DbSet` לכל ישות, 5 Migrations, Seed אוטומטי, Connection String מהקונפיגורציה. CRUD מלא; סינון, מיון ו-Pagination בתוך ה-SQL (`Skip`/`Take`), ו-`AsNoTracking` בקריאות |
-| קשרים | 1:N (הורה ← בקשות, שמרטפית ← שיבוצים, משתמש ← הודעות) ו-M:N (בקשות ↔ תגיות) ב-Fluent API. `Include` באותה שאילתה, בלי N+1 |
+| קשרים | 1:N (הורה ← בקשות, שמרטפית ← שיבוצים, משתמש ← הודעות) ו-M:N (בקשות ↔ תגיות) ב-Fluent API. `Include` טוען את הקשרים באותה שאילתה, בלי N+1. **השאילתות טוענות רק קשרים בדרגה אחת (בקשה ← הורה, שמרטפית, תגיות), ולכן `ThenInclude` (קשר של קשר) לא נדרש** |
 | DTO + AutoMapper | ישויות לא נכנסות ולא יוצאות מה-API: DTOs נפרדים ל-request ול-response, ומיפוי ב-AutoMapper Profiles |
 | Async | async מה-Controller ועד ה-DbContext, `CancellationToken` לאורך כל הדרך, בלי `.Result` ו-`.Wait()` |
 | Middleware | `ExceptionHandling → CorrelationId → RequestLogging → Swagger → CORS → Authentication → Authorization`. כל שגיאה חוזרת כ-ProblemDetails עם `correlationId` |
