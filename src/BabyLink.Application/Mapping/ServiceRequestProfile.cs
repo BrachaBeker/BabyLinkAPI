@@ -2,6 +2,7 @@
 // שדות שה-Service קובע (בעלות, שיבוץ, Version, תאריכים, תגיות לפי TagIds) לא נלקחים מה-DTO.
 using AutoMapper;
 using BabyLink.Application.DTOs.ServiceRequests;
+using BabyLink.Application.Services;
 using BabyLink.Domain.Entities;
 
 namespace BabyLink.Application.Mapping;
@@ -40,6 +41,8 @@ public class ServiceRequestProfile : Profile
         // ParentFullName / AssignedBabysitterPhone וכו' ממופים אוטומטית (Flattening).
         CreateMap<ServiceRequest, ServiceRequestDetailsDto>()
             .ForMember(d => d.IsAssigned, o => o.MapFrom(s => s.AssignedBabysitterId != null))
-            .ForMember(d => d.IsExpired, o => o.MapFrom(s => s.StartTimeUtc <= DateTime.UtcNow));
+            .ForMember(d => d.IsExpired, o => o.MapFrom(s => s.StartTimeUtc <= DateTime.UtcNow))
+            .ForMember(d => d.CanCancelAssignment,
+                o => o.MapFrom(s => s.StartTimeUtc - DateTime.UtcNow >= ServiceRequestService.AssignmentCancellationNotice));
     }
 }

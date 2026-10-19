@@ -33,4 +33,7 @@ public class ServiceRequestDetailsDto
 
     public bool IsAssigned { get; set; }
     public bool IsExpired { get; set; }
+
+    // האם עוד אפשר לבטל את השיבוץ (עד 24 שעות לפני המועד). הלקוח חוסם לפיו את כפתור הביטול.
+    public bool CanCancelAssignment { get; set; }
 }

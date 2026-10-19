@@ -1,6 +1,6 @@
 // מימוש IServiceRequestService - הלב של המערכת. כל הוולידציה העסקית כאן:
 // סיום אחרי התחלה, התחלה בעתיד, עד 24 שעות; רק ההורה שיצר עורך/מוחק (403); בקשה משובצת לא נערכת (409);
-// רק השמרטפית שתפסה מבטלת את השיבוץ, ורק לפני המועד. כל שינוי מצב מול הצד השני יוצר לו הודעה,
+// רק השמרטפית שתפסה מבטלת את השיבוץ, ורק עד 24 שעות לפני המועד. כל שינוי מצב מול הצד השני יוצר לו הודעה,
 // באותה SaveChanges של השינוי עצמו.
 // מקרי הקצה של התחרות מתועדים ב-README. מגבלה ידועה: שתי בקשות שונות וחופפות שאותה שמרטפית תופסת
 // באותה מילישנייה - שתי שורות שונות, ולכן ה-Version לא מזהה את זה (פתרון אפשרי: Concurrency Token על User).
@@ -25,6 +25,10 @@ public class ServiceRequestService(
     ILogger<ServiceRequestService> logger) : IServiceRequestService
 {
     private static readonly TimeSpan MaxDuration = TimeSpan.FromHours(24);
+
+    // שמרטפית יכולה לבטל את השיבוץ שלה רק עד 24 שעות לפני המועד. פחות מזה - עליה להשיג מחליפה.
+    // ציבורי, כי גם ה-DTO מחשב לפיו את CanCancelAssignment (בשביל הכפתור בלקוח).
+    public static readonly TimeSpan AssignmentCancellationNotice = TimeSpan.FromHours(24);
 
     public async Task<PagedResult<ServiceRequestListItemDto>> GetPagedAsync(ServiceRequestQueryParameters query, CurrentUser currentUser, CancellationToken cancellationToken)
     {
@@ -183,7 +187,7 @@ public class ServiceRequestService(
         return await GetByIdAsync(requestId, new CurrentUser(babysitterId, UserRole.Babysitter), cancellationToken);
     }
 
-    // ביטול שיבוץ ע"י השמרטפית שתפסה - הבקשה חוזרת להמתין לשמרטפית, וההורה מקבל הודעה.
+    // ביטול שיבוץ ע"י השמרטפית שתפסה, עד 24 שעות לפני המועד - הבקשה חוזרת להמתין לשמרטפית, וההורה מקבל הודעה.
     // גם כאן ה-Version מגן: ביטול שקורה בדיוק כשמישהו אחר משנה את הבקשה (תפיסה, עריכה, מחיקה) - מי שמאחר מקבל 409.
     public async Task UnassignAsync(int requestId, int babysitterId, CancellationToken cancellationToken)
     {
@@ -202,6 +206,11 @@ public class ServiceRequestService(
         if (request.StartTimeUtc <= DateTime.UtcNow)
         {
             throw new BusinessRuleException("לא ניתן לבטל שיבוץ אחרי שמועד ההתחלה עבר.");
+        }
+
+        if (request.StartTimeUtc - DateTime.UtcNow < AssignmentCancellationNotice)
+        {
+            throw new BusinessRuleException("אין אפשרות לבטל פחות מ-24 שעות לפני המועד. אם אינך יכולה להגיע, עליך להשיג מחליפה.");
         }
 
         var babysitterName = request.AssignedBabysitter?.FullName ?? "השמרטפית";

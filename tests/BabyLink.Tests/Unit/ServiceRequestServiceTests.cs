@@ -276,6 +276,32 @@ public class ServiceRequestServiceTests
     }
 
     [Fact]
+    public async Task UnassignAsync_WhenLessThan24HoursBeforeStart_ThrowsBusinessRule()
+    {
+        // פחות מ-24 שעות לפני המועד כבר לא מבטלים - השמרטפית צריכה להשיג מחליפה.
+        SetupGetForUpdate(CreateRequest(assignedBabysitterId: BabysitterId, startUtc: DateTime.UtcNow.AddHours(23)));
+
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(
+            () => _service.UnassignAsync(RequestId, BabysitterId, CancellationToken.None));
+
+        Assert.Contains("מחליפה", ex.Message);
+        VerifyNotSaved();
+        _notificationRepository.Verify(n => n.Add(It.IsAny<Notification>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(23, false)]
+    [InlineData(25, true)]
+    public async Task GetByIdAsync_CanCancelAssignment_OnlyUpTo24HoursBeforeStart(int hoursUntilStart, bool expected)
+    {
+        SetupGetById(CreateRequest(assignedBabysitterId: BabysitterId, startUtc: DateTime.UtcNow.AddHours(hoursUntilStart)));
+
+        var result = await _service.GetByIdAsync(RequestId, new CurrentUser(BabysitterId, UserRole.Babysitter), CancellationToken.None);
+
+        Assert.Equal(expected, result.CanCancelAssignment);
+    }
+
+    [Fact]
     public async Task UnassignAsync_WhenRepositoryThrowsConcurrencyConflict_PropagatesConflict()
     {
         // מישהו שינה את הבקשה בין הקריאה לשמירה (למשל ההורה ביטל אותה באותו רגע) - 409.
@@ -305,7 +331,8 @@ public class ServiceRequestServiceTests
 
     private static ServiceRequest CreateRequest(int? assignedBabysitterId = null, DateTime? startUtc = null)
     {
-        var start = startUtc ?? DateTime.UtcNow.AddDays(1);
+        // ברירת מחדל: בעוד יומיים - מעבר ל-24 השעות שבהן כבר אי אפשר לבטל שיבוץ
+        var start = startUtc ?? DateTime.UtcNow.AddDays(2);
         return new ServiceRequest
         {
             Id = RequestId,
